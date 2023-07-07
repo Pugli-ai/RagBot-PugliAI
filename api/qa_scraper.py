@@ -182,13 +182,11 @@ def split_into_many(text, max_tokens = 500):
         tokens_so_far += token + 1
 
     return chunks
-    
-
 
 if __name__ == "__main__":
     # Define root domain to crawl
-    domain = "gethelp.tiledesk.com"
     full_url = "https://gethelp.tiledesk.com/"
+    domain = urlparse(full_url).netloc # gethelp.tiledesk.com
     crawl(full_url)
 
     # Create a list to store the text files
