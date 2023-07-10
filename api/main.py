@@ -1,6 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
+from api import qa_run
+import pandas as pd
+import numpy as np
 
 app = FastAPI()
+df=pd.read_csv('processed/embeddings.csv', index_col=0)
+df['embeddings'] = df['embeddings'].apply(eval).apply(np.array)
 
 @app.get("/")
 async def root():
@@ -13,3 +18,9 @@ async def genereteResponse():
 @app.get("/api/{id}")
 def home(id: int):
     return {"id": id}
+
+@app.get("/qa")
+def generate_response(question: str = Query(..., min_length=1)):
+    answer = qa_run.answer_question(df, question=question, debug=False)
+    print(answer)
+    return {"question": question, "answer": answer}
