@@ -82,14 +82,18 @@ def answer_question(
         # Get the source URL for the most similar context
         source_url = df.loc[df['distances'].idxmin(), 'url']
         
+
         # Add the source URL to the answer
         answer = response["choices"][0]["text"].strip()
-        answer_with_url = f"Source URL: {source_url}\nAnswer: {answer}"
+        dunno_list = ["I don't know", "I don’t know", "I do not know", "I don’t know", "I don't know.", "I don’t know.", "I do not know.", "I don’t know."]
+        if answer in dunno_list:
+            source_url = None
+
         
-        return answer_with_url
+        return {"answer": answer, "source_url": source_url}
     except Exception as e:
         print(e)
-        return ""
+        return {"answer": "Error!", "source_url": None}
     
 
 if __name__=="__main__":
@@ -104,7 +108,7 @@ if __name__=="__main__":
     question="which javascript code should i copy and paste for installing the widget on my website ? please write me that javascript code"
     answer = answer_question(df, question=question, debug=False)
     print(f"Question: {question}\nAnswer: {answer}")
-    
+
     question="How to connect Tiledesk with Telegram"
     answer = answer_question(df, question=question, debug=False)
     print(f"Question: {question}\nAnswer: {answer}")

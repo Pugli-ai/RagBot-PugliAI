@@ -23,4 +23,6 @@ def home(id: int):
 def generate_response(question: str = Query(..., min_length=1)):
     answer = qa_run.answer_question(df, question=question, debug=False)
     print(answer)
-    return {"question": question, "answer": answer}
+    return answer
+
+#http://localhost:8000/qa?question=How%20to%20connect%20Tiledesk%20with%20Telegram
