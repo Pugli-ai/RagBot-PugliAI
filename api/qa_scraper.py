@@ -129,7 +129,7 @@ def crawl(url):
             # If the crawler gets to a page that requires JavaScript, it will stop the crawl
             if ("You need to enable JavaScript to run this app." in text):
                 print("Unable to parse page " + url + " due to JavaScript being required")
-            
+            text = f'{url} \n'+ text
             # Otherwise, write the text to the file in the text directory
             f.write(text)
 
@@ -149,7 +149,7 @@ def remove_newlines(serie):
 
 
 # Function to split the text into chunks of a maximum number of tokens
-def split_into_many(text, max_tokens = 500):
+def split_into_many(url, text, tokenizer, max_tokens = 500):
 
     # Split the text into sentences
     sentences = text.split('. ')
@@ -168,7 +168,7 @@ def split_into_many(text, max_tokens = 500):
         # than the max number of tokens, then add the chunk to the list of chunks and reset
         # the chunk and tokens so far
         if tokens_so_far + token > max_tokens:
-            chunks.append(". ".join(chunk) + ".")
+            chunks.append((url, ". ".join(chunk) + "."))
             chunk = []
             tokens_so_far = 0
 
@@ -182,6 +182,7 @@ def split_into_many(text, max_tokens = 500):
         tokens_so_far += token + 1
 
     return chunks
+
 
 if __name__ == "__main__":
     # Define root domain to crawl
@@ -198,12 +199,14 @@ if __name__ == "__main__":
         # Open the file and read the text
         with open("text/" + domain + "/" + file, "r") as f:
             text = f.read()
-
+            url = text.split('\n')[0]
             # Omit the first 11 lines and the last 4 lines, then replace -, _, and #update with spaces.
-            texts.append((file[11:-4].replace('-',' ').replace('_', ' ').replace('#update',''), text))
+            text_name = file[11:-4].replace('-',' ').replace('_', ' ').replace('#update','')
+            texts.append((url, text_name, text))
+
 
     # Create a dataframe from the list of texts
-    df = pd.DataFrame(texts, columns = ['fname', 'text'])
+    df = pd.DataFrame(texts, columns = ['url', 'fname', 'text' ])
 
     # Set the text column to be the raw text with the newlines removed
     df['text'] = df.fname + ". " + remove_newlines(df.text)
@@ -213,7 +216,7 @@ if __name__ == "__main__":
     tokenizer = tiktoken.get_encoding("cl100k_base")
 
     df = pd.read_csv('processed/scraped.csv', index_col=0)
-    df.columns = ['title', 'text']
+    df.columns = ['url', 'title', 'text']
 
     # Tokenize the text and save the number of tokens to a new column
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
@@ -225,31 +228,35 @@ if __name__ == "__main__":
 
     shortened = []
 
+
     # Loop through the dataframe
     for row in df.iterrows():
-
+        url = row[1]['url']
         # If the text is None, go to the next row
         if row[1]['text'] is None:
             continue
 
         # If the number of tokens is greater than the max number of tokens, split the text into chunks
         if row[1]['n_tokens'] > max_tokens:
-            shortened += split_into_many(row[1]['text'], max_tokens=max_tokens)
+
+            shortened += split_into_many(url, row[1]['text'], tokenizer=tokenizer, max_tokens=max_tokens)
         
         # Otherwise, add the text to the list of shortened texts
         else:
-            shortened.append( row[1]['text'] )
+            shortened.append( (url, row[1]['text']) )
 
-    df = pd.DataFrame(shortened, columns = ['text'])
+
+    df = pd.DataFrame(shortened, columns = ['url', 'text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
 
     openai.api_key = api_key.OPENAI_API_KEY
 
     df['embeddings'] = df.text.apply(lambda x: openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding'])
     df.to_csv('processed/embeddings.csv')
-    
+
     df['embeddings'] = df.text.apply(lambda x: openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding'])
 
     df.to_csv('processed/embeddings.csv')
+
 
     

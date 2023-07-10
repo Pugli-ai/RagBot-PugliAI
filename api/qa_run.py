@@ -78,7 +78,15 @@ def answer_question(
             stop=stop_sequence,
             model=model,
         )
-        return response["choices"][0]["text"].strip()
+        
+        # Get the source URL for the most similar context
+        source_url = df.loc[df['distances'].idxmin(), 'url']
+        
+        # Add the source URL to the answer
+        answer = response["choices"][0]["text"].strip()
+        answer_with_url = f"Source URL: {source_url}\nAnswer: {answer}"
+        
+        return answer_with_url
     except Exception as e:
         print(e)
         return ""
@@ -88,12 +96,15 @@ if __name__=="__main__":
 
     df=pd.read_csv('processed/embeddings.csv', index_col=0)
     df['embeddings'] = df['embeddings'].apply(eval).apply(np.array)
-    print(df.head())
 
     question = "What day is it?"
     answer = answer_question(df, question=question, debug=False)
     print(f"Question: {question}\nAnswer: {answer}")
 
     question="which javascript code should i copy and paste for installing the widget on my website ? please write me that javascript code"
+    answer = answer_question(df, question=question, debug=False)
+    print(f"Question: {question}\nAnswer: {answer}")
+    
+    question="How to connect Tiledesk with Telegram"
     answer = answer_question(df, question=question, debug=False)
     print(f"Question: {question}\nAnswer: {answer}")
