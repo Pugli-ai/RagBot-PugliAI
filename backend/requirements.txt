@@ -1,2 +1,11 @@
 fastapi
 uvicorn
+pandas
+numpy
+openai
+# api_key
+python-dotenv
+matplotlib
+plotly
+scipy
+scikit-learn

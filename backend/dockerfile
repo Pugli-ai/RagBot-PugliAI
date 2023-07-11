@@ -1,7 +1,8 @@
 FROM python:3.7
 
 COPY ./api /api/api
-COPY requirements.txt .
+COPY ./requirements.txt .
+COPY ./processed /api/processed
 
 RUN pip install -r requirements.txt
 

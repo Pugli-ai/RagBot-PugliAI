@@ -17,7 +17,7 @@ cd chat-playground
 
 2. **Build and run the Docker container**:
 ```bash
-docker compose  up -d
+docker compose -f docker-compose.yml up --build
 ```
 
 3. **Connect to the application**:

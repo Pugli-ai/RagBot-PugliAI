@@ -1,13 +1,17 @@
 import pandas as pd
 import openai
-import api_key
+# import api_key
 import pandas as pd
-import api_key
+# import api_key
 import numpy as np
+from dotenv import load_dotenv
+import os 
 
 from openai.embeddings_utils import distances_from_embeddings
 
-openai.api_key = api_key.OPENAI_API_KEY
+load_dotenv()
+
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 def create_context(
     question, df, max_len=1800, size="ada"
