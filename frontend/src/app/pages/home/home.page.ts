@@ -40,9 +40,10 @@ export class HomePage {
       {"isUser": true, "text":userText},
     );
 
-    this.api.saveUser('text').subscribe((response: any) => {
+    this.api.chat('text').subscribe((response: any) => {
       this.history.push(
-        {"isUser": false, "text":response.text},
+        {"isUser": false, "text":response.message},
+
       );
       
     });

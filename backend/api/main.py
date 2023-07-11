@@ -2,14 +2,32 @@ from fastapi import FastAPI, Query
 from api import qa_run
 import pandas as pd
 import numpy as np
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 df=pd.read_csv('processed/embeddings.csv', index_col=0)
 df['embeddings'] = df['embeddings'].apply(eval).apply(np.array)
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
+@app.post("/post")
+async def root():
+    return {"message": "Hello World"}
+
 #examples
 @app.get("/api")
 async def genereteResponse():
