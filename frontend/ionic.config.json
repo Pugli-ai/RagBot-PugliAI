@@ -1,0 +1,7 @@
+{
+  "name": "vis.ai",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}

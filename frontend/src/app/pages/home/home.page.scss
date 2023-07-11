@@ -1,0 +1,130 @@
+textarea {
+  resize: none;
+}
+
+
+
+.chat{
+
+  position: relative;
+  margin-bottom: 130px;
+}
+
+
+.sidebar {
+  width: 250px;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: #f8f9fa;
+  padding: 20px;
+  z-index: 1;
+  overflow-x: hidden;
+  background-color: var(--text-primary);
+}
+
+.sidebar-open {
+  display: block;
+}
+
+.sidebar-closed {
+  display: none;
+}
+
+.sidebar-closed {
+  margin-left: 0;
+  transition: margin-left 5s ease;
+}
+
+.sidebar-open {
+  transition: margin-left 5s ease;
+}
+
+.open-sidebar-btn{
+  position: fixed !important;
+  z-index: 1000;
+}
+
+.content {
+  margin-left: 250px;
+  padding: 20px;
+}
+
+.content-open {
+  margin-left: 0;
+  padding: 20px;
+}
+
+.clear{
+  width: 100%;
+}
+
+.footer{
+  background-color: vat(--text-default);
+}
+
+.search{
+  min-width: 15rem;
+  max-width: 40rem;
+  border-radius: 15px;
+  border: none;
+  background-color: var(--text-primary);
+}
+
+.input{
+  border: none;
+  background-color: var(--text-primary);
+  color: white;
+  height: 50px;
+  overflow: hidden;
+}
+
+.input-group-append {
+  display: flex;
+  align-items: center;
+}
+
+.submit-button{
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.submit-icon{
+  color: gray;
+  padding: 5px;
+}
+
+.submit-icon-active{
+  color: white;
+  background-color: var(--color-primary);
+  padding: 5px;
+  border-radius: 5px;
+}
+
+.settings {
+  position: absolute;
+  bottom: 0;
+}
+
+
+
+.user-chat-div{
+  background-color: var(--text-default);
+}
+
+.openai-chat-div{
+  background-color: var( --text-secondary);
+}
+
+.chat-text-div{
+  min-width: 15rem;
+  max-width: 45rem;
+  // border: none;
+}
+
+
+
+
+
