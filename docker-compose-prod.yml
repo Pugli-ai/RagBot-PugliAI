@@ -1,0 +1,11 @@
+version: "3.8"
+services:
+  frontend:
+    image: tiledeskacr.azurecr.io/tiledesk-frontend
+    ports: 
+      - "8100:8200"
+
+  backend:
+    image: tiledeskacr.azurecr.io/tiledesk-backend
+    ports: 
+      - 8000:8000
