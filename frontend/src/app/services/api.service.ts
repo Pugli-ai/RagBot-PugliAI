@@ -17,8 +17,16 @@ export class ApiService {
           'Content-Type': 'application/json'
         });
 
-    const url = entrypoint + 'post';
-    return this.http.post<any>(url, text, { headers });
+    const url = entrypoint + 'qa';
+    console.log(text)
+    let foo = {
+      "question": text
+    }
+    console.log(foo);
+    let body = JSON.stringify(foo);
+    
+    console.log(body);
+    return this.http.post<any>(url, body, { headers });
   }
   
 }

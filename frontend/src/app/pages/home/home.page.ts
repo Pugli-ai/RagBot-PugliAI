@@ -35,18 +35,17 @@ export class HomePage {
 
   chat(userText:string){
 
-    this.myTextarea.nativeElement.value = '';
+    
     this.history.push(
       {"isUser": true, "text":userText},
     );
 
-    this.api.chat('text').subscribe((response: any) => {
+    this.api.chat(this.myTextarea.nativeElement.value).subscribe((response: any) => {
       this.history.push(
-        {"isUser": false, "text":response.message},
-
+        {"isUser": false, "text":response.answer},
       );
-      
     });
+    this.myTextarea.nativeElement.value = '';
 
   }
 
