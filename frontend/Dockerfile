@@ -19,8 +19,8 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 8200
+EXPOSE 80
 
 ENTRYPOINT ["ionic"]    
 
-CMD ["serve", "--port", "8200", "--address", "0.0.0.0"]
+CMD ["serve", "--port", "80", "--address", "0.0.0.0", "--disable-host-check"]
