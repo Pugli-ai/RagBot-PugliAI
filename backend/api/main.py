@@ -2,6 +2,7 @@ from fastapi import FastAPI, Query
 from api import qa_run
 import pandas as pd
 import numpy as np
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -23,11 +24,6 @@ df['embeddings'] = df['embeddings'].apply(eval).apply(np.array)
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
-
-@app.post("/post")
-async def root():
-    return {"message": "Hello World"}
-
 #examples
 @app.get("/api")
 async def genereteResponse():
@@ -37,6 +33,17 @@ async def genereteResponse():
 def home(id: int):
     return {"id": id}
 
+
+class Question(BaseModel):
+    question: str
+
+@app.post("/qa")
+def generate_response(question: Question):
+    answer = qa_run.answer_question(df, question=question.question, debug=False)
+    print(answer)
+    return answer
+
+"""
 @app.get("/qa")
 def generate_response(question: str = Query(..., min_length=1)):
     answer = qa_run.answer_question(df, question=question, debug=False)
@@ -44,3 +51,4 @@ def generate_response(question: str = Query(..., min_length=1)):
     return answer
 
 #http://localhost:8000/qa?question=How%20to%20connect%20Tiledesk%20with%20Telegram
+"""
