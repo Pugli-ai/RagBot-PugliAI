@@ -41,8 +41,9 @@ export class HomePage {
     );
 
     this.api.chat(this.myTextarea.nativeElement.value).subscribe((response: any) => {
+      console.log(response.source)
       this.history.push(
-        {"isUser": false, "text":response.answer},
+        {"isUser": false, "text":response.answer, "source":response.source_url},
       );
     });
     this.myTextarea.nativeElement.value = '';

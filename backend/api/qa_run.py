@@ -50,10 +50,10 @@ def answer_question(
     df,
     model="text-davinci-003",
     question="Am I allowed to publish model outputs to Twitter, without a human review?",
-    max_len=1800,
+    max_len=3000,
     size="ada",
     debug=False,
-    max_tokens=150,
+    max_tokens=300,
     stop_sequence=None
 ):
     """

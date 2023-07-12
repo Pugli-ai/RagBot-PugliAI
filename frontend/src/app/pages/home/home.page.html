@@ -46,8 +46,8 @@
               <img class="rounded-circle" alt="avatar1" src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/ChatGPT_logo.svg/2048px-ChatGPT_logo.svg.png" />
             </div>
             <div class="col">
-              {{div.text}}
-              <div id="vis"></div>
+              {{div.text}} <br>
+              <a href="{{div.source}}" *ngIf="!div.isUser" target="_blank"> Source</a>
             </div>
           </div>
         </div> 
