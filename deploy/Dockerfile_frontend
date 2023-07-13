@@ -2,7 +2,6 @@ FROM node:20
 
 WORKDIR /app
 
-
 # RUN apk add --update python3 py3-pip
 
 RUN npm config set legacy-peer-deps true
@@ -17,7 +16,7 @@ COPY ./frontend/package*.json ./
 
 RUN npm install
 
-COPY . .
+COPY ./frontend ./
 
 EXPOSE 80
 
