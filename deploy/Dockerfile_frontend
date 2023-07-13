@@ -13,7 +13,7 @@ RUN npm config set legacy-peer-deps true
 
 RUN npm install -g @ionic/cli
 
-COPY package*.json ./
+COPY ../frontend/package*.json ./
 
 RUN npm install
 
