@@ -50,10 +50,10 @@ def answer_question(
     df,
     model="text-davinci-003",
     question="Am I allowed to publish model outputs to Twitter, without a human review?",
-    max_len=3000,
+    max_len=2000,
     size="ada",
     debug=False,
-    max_tokens=300,
+    max_tokens=1500,
     stop_sequence=None
 ):
     """
@@ -65,6 +65,7 @@ def answer_question(
         max_len=max_len,
         size=size,
     )
+
     # If debug, print the raw model response
     if debug:
         print("Context:\n" + context)
