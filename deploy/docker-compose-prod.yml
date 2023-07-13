@@ -3,7 +3,7 @@ services:
   frontend:
     image: tiledeskacr.azurecr.io/tiledesk-frontend
     ports: 
-      - "8100:8200"
+      - 80:80
 
   backend:
     image: tiledeskacr.azurecr.io/tiledesk-backend
