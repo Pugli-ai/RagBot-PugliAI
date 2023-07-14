@@ -6,7 +6,7 @@ export const environment = {
   production: false
 };
 
-export const entrypoint = "backend:8000/"
+export const entrypoint = "http://localhost:8000/"
 
 
 /*
