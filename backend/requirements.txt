@@ -9,3 +9,4 @@ matplotlib
 plotly
 scipy
 scikit-learn
+pinecone-client
