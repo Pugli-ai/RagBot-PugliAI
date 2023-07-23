@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-
+from api import qa_scraper
 
 app = FastAPI()
 
@@ -34,6 +34,14 @@ def generate_response(question: Question):
     answer = qa_run.answer_question(df, question=question.question, debug=False)
     print(answer)
     return answer
+
+class Url(BaseModel):
+    full_url: str
+    
+@app.post("/scrape/start")
+async def start_scrape(url: Url):
+    qa_scraper.main(url.full_url)
+    return {"message": "Scrape finished!"}
 
 """
 @app.get("/qa")
