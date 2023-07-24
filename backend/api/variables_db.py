@@ -1,0 +1,11 @@
+import os
+
+OPENAI_API_KEY= ''
+PINECONE_API_KEY =  ''
+PINECONE_INDEX_NAME = ''
+
+# Delete this 2 line in production
+OPENAI_API_KEY= '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'
+PINECONE_API_KEY =  '11163959-d3d5-499b-9b45-d07bd243788b'
+
+

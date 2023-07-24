@@ -1,44 +1,46 @@
 import pinecone
-import api_key #DEBUG
+import variables_db
 import os
 from urllib.parse import urlparse
 
+INDEX= None
+
 def init_pinecone():
     pinecone.init(
-    api_key=os.environ['PINECONE_API_KEY'],
+    api_key=variables_db.PINECONE_API_KEY,
     environment="us-west1-gcp-free"  # find next to API key in console
     )
 
-def create_index(index_name, dimention):
-    if index_name in pinecone.list_indexes():
-        pinecone.delete_index(index_name)
-    pinecone.create_index(name=index_name, metric="cosine", dimension=dimention)
+def create_index(dimention):
+    if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
+        pinecone.delete_index(variables_db.PINECONE_INDEX_NAME)
+    pinecone.create_index(name=variables_db.PINECONE_INDEX_NAME, metric="cosine", dimension=dimention)
 
-def retrieve_index(index_name):
-    return pinecone.Index(index_name=index_name)
+def retrieve_index():
+    return pinecone.Index(index_name=variables_db.PINECONE_INDEX_NAME)
 
-import hashlib
+import re
 
-def hash_url(url):
-    # Hash the URL using MD5
-    md5 = hashlib.md5()
-    md5.update(url.encode('utf-8'))
-    hashed_url = md5.hexdigest()
-    return hashed_url
+def url_to_index_name(url):
+    # Remove 'https://' or 'http://'
+    url = re.sub(r'^https?://', '', url)
 
-def unhash_url(hashed_url):
-    # To securely "unhash" a hashed URL, you cannot reverse the hashing process.
-    # Instead, you can use a dictionary or database to store the mapping of hashed URLs to original URLs.
-    # When you need to "unhash" a hashed URL, you can look up the original URL from the dictionary or database.
-    # For simplicity, let's assume we use a global dictionary to store the mappings.
+    # Remove trailing slashes
+    url = url.rstrip('/')
 
-    # For demonstration purposes, I'm using a global dictionary. In practice, you may use a database.
-    global url_mapping_dict
+    # Replace non-alphanumeric characters with '-'
+    url = re.sub(r'[^a-zA-Z0-9]+', '-', url)
 
-    if hashed_url in url_mapping_dict:
-        return url_mapping_dict[hashed_url]
-    else:
-        return None
+    # Remove leading '-' if present
+    url = url.lstrip('-')
+
+    # Remove leading and trailing '-' if present
+    url = url.strip('-')
+
+    # Convert to lowercase
+    url = url.lower()
+
+    return url
 
 def get_domain_and_url(full_url):
 
@@ -53,3 +55,5 @@ def get_domain_and_url(full_url):
     domain = urlparse(full_url).netloc # gethelp.tiledesk.com
 
     return full_url, domain
+
+

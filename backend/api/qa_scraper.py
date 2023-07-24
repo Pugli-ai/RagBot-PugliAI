@@ -11,8 +11,8 @@ import tiktoken
 import numpy as np
 from openai.embeddings_utils import distances_from_embeddings, cosine_similarity
 import openai
-from api import api_key #DEBUG
-from api import pinecone_functions
+import variables_db
+import pinecone_functions
 from time import sleep
 import traceback
 
@@ -246,7 +246,7 @@ def main(full_url):
     df = pd.DataFrame(shortened, columns = ['url', 'text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
 
-    openai.api_key = api_key.OPENAI_API_KEY
+    openai.api_key = variables_db.OPENAI_API_KEY
 
     df['embeddings'] = df.text.apply(lambda x: openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding'])
 
@@ -254,12 +254,14 @@ def main(full_url):
 
     print('creating index...')
     pinecone_functions.init_pinecone()
-    index_name = pinecone_functions.hash_url(domain)
-    pinecone_functions.create_index(index_name, dimention)
+    index_name = pinecone_functions.url_to_index_name(full_url)
+    print('index name: ', index_name)
+    variables_db.PINECONE_INDEX_NAME = index_name
+    pinecone_functions.create_index(dimention)
 
     print('index created, retrieving index...')
     sleep(2)
-    index = pinecone_functions.retrieve_index(index_name)
+    index = pinecone_functions.retrieve_index()
 
     # Convert DataFrame to the desired format
     formatted_data = [
