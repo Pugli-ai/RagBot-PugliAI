@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-
+from api import qa_scraper
 
 app = FastAPI()
 
@@ -18,22 +18,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-df=pd.read_csv('processed/embeddings.csv', index_col=0)
-df['embeddings'] = df['embeddings'].apply(eval).apply(np.array)
-
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
 
 
-class Question(BaseModel):
+class Response(BaseModel):
     question: str
+    gptkey = str
+    kbid = str
 
 @app.post("/api/qa")
-def generate_response(question: Question):
-    answer = qa_run.answer_question(df, question=question.question, debug=False)
+def generate_response(response: Response):
+    answer = qa_run.main(question=response.question, openai_api_key=response.gptkey, pinecone_index_name=response.kbid,  debug=False)
     print(answer)
     return answer
+
+class Url(BaseModel):
+    full_url: str
+    
+@app.post("/scrape/start")
+async def start_scrape(url: Url):
+    qa_scraper.main(url.full_url)
+    return {"message": "Scrape finished!"}
 
 """
 @app.get("/qa")

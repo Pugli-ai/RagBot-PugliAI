@@ -1,53 +1,38 @@
 import pandas as pd
 import openai
-# import api_key
 import pandas as pd
-# import api_key
 import numpy as np
 from dotenv import load_dotenv
-import os 
+import os
+import variables_db
+import pinecone_functions
 
 from openai.embeddings_utils import distances_from_embeddings
 
-load_dotenv()
-
-openai.api_key = os.getenv('OPENAI_API_KEY')
-
-def create_context(
-    question, df, max_len=1800, size="ada"
-):
-    """
-    Create a context for a question by finding the most similar context from the dataframe
-    """
-
+def create_context(question, top_k=3, max_len=1800):
     # Get the embeddings for the question
     q_embeddings = openai.Embedding.create(input=question, engine='text-embedding-ada-002')['data'][0]['embedding']
 
-    # Get the distances from the embeddings
-    df['distances'] = distances_from_embeddings(q_embeddings, df['embeddings'].values, distance_metric='cosine')
+    results = pinecone_functions.INDEX.query(
+    vector=q_embeddings, 
+    top_k=3, 
+    include_metadata=True)
 
-
-    returns = []
+    texts = []
     cur_len = 0
 
-    # Sort by distance and add the text to the context until the context is too long
-    for i, row in df.sort_values('distances', ascending=True).iterrows():
-        
-        # Add the length of the text to the current length
-        cur_len += row['n_tokens'] + 4
-        
-        # If the context is too long, break
+    for result in results['matches']:
+        cur_len += result['metadata']['n_tokens'] + 4
         if cur_len > max_len:
             break
-        
-        # Else add it to the text that is being returned
-        returns.append(row["text"])
+        texts.append(result['metadata']['text'])
 
-    # Return the context
-    return "\n\n###\n\n".join(returns)
+    source_url = results['matches'][0]['metadata']['url']
+
+    
+    return "\n\n###\n\n".join(texts), source_url
 
 def answer_question(
-    df,
     model="text-davinci-003",
     question="Am I allowed to publish model outputs to Twitter, without a human review?",
     max_len=2000,
@@ -56,16 +41,11 @@ def answer_question(
     max_tokens=1500,
     stop_sequence=None
 ):
+    
     """
     Answer a question based on the most similar context from the dataframe texts
     """
-    context = create_context(
-        question,
-        df,
-        max_len=max_len,
-        size=size,
-    )
-
+    context, source_url = create_context(question)
     # If debug, print the raw model response
     if debug:
         print("Context:\n" + context)
@@ -84,8 +64,6 @@ def answer_question(
             model=model,
         )
         
-        # Get the source URL for the most similar context
-        source_url = df.loc[df['distances'].idxmin(), 'url']
         
 
         # Add the source URL to the answer
@@ -99,21 +77,58 @@ def answer_question(
     except Exception as e:
         print(e)
         return {"answer": "Error!", "source_url": None}
-    
+
+
+def main(question, openai_api_key, pinecone_index_name):
+    if variables_db.OPENAI_API_KEY != openai_api_key:
+        print('Changing OPENAI_API_KEY')
+        variables_db.OPENAI_API_KEY = openai_api_key
+        openai.api_key = variables_db.OPENAI_API_KEY
+
+    pinecone_index_name = pinecone_functions.url_to_index_name(pinecone_index_name)
+    if variables_db.PINECONE_INDEX_NAME != pinecone_index_name:
+        print('Changing PINECONE_INDEX')
+        variables_db.PINECONE_INDEX_NAME = pinecone_index_name
+        pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+
+    return answer_question(question=question, debug=False)
+
+
+def init():
+    """ Initialize the app's neccessary components
+    """
+    # Connecting to Pinecone
+    pinecone_functions.init_pinecone()
+    load_dotenv()
+    openai.api_key = variables_db.OPENAI_API_KEY
+
+init() # initialize the app's neccessary components
+
 
 if __name__=="__main__":
 
-    df=pd.read_csv('processed/embeddings.csv', index_col=0)
-    df['embeddings'] = df['embeddings'].apply(eval).apply(np.array)
 
+
+    full_url = "https://gethelp.tiledesk.com/"
     question = "What day is it?"
-    answer = answer_question(df, question=question, debug=False)
+    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
     print(f"Question: {question}\nAnswer: {answer}")
 
+    full_url = "https://gethelp.tiledesk.com/"
     question="which javascript code should i copy and paste for installing the widget on my website ? please write me that javascript code"
-    answer = answer_question(df, question=question, debug=False)
+    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
     print(f"Question: {question}\nAnswer: {answer}")
 
+    full_url = "https://gethelp.tiledesk.com/"
     question="How to connect Tiledesk with Telegram"
-    answer = answer_question(df, question=question, debug=False)
+    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
     print(f"Question: {question}\nAnswer: {answer}")
+
+
+    full_url = "https://gethelp.tiledesk.com/"
+    question="What is tiledesk?"
+    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+    print(f"Question: {question}\nAnswer: {answer}")
+
+
+
