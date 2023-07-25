@@ -71,12 +71,14 @@ def answer_question(
         dunno_list = ["I don't know", "I don’t know", "I do not know", "I don’t know", "I don't know.", "I don’t know.", "I do not know.", "I don’t know."]
         if answer in dunno_list:
             source_url = None
+            success = False
+        else:
+            success = True
 
-        
-        return {"answer": answer, "source_url": source_url}
+        return {"answer": answer, "source_url": source_url, "success": success}
     except Exception as e:
         print(e)
-        return {"answer": "Error!", "source_url": None}
+        return {"answer": "Error!", "source_url": None, "success": False}
 
 
 def main(question, openai_api_key, pinecone_index_name):
