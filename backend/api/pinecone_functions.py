@@ -1,5 +1,5 @@
 import pinecone
-import variables_db
+from api import variables_db
 import os
 from urllib.parse import urlparse
 
