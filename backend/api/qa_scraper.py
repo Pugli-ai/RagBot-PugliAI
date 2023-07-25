@@ -87,7 +87,55 @@ def get_domain_hyperlinks(local_domain, url):
     # Return the list of hyperlinks that are within the same domain
     return list(set(clean_links))
 
+def crawl_to_memory(url):
+    # Parse the URL and get the domain
+    local_domain = urlparse(url).netloc
 
+    # Create a queue to store the URLs to crawl
+    queue = deque([url])
+
+    # Create a set to store the URLs that have already been seen (no duplicates)
+    seen = set([url])
+
+    texts= []
+    # While the queue is not empty, continue crawling
+    while queue:
+        # Get the next URL from the queue
+        url = queue.pop()
+        #if url does not end with /, add it
+        url = url.split()[0]
+        if not url.endswith("/"):
+            url += "/"
+        
+        print(url) # for debugging and to see the progress
+
+        # Save text from the url to a <url>.txt file
+        #with open('text/'+local_domain+'/'+url[8:].replace("/", "_") + ".txt", "w") as f:
+        
+        # Get the text from the URL using BeautifulSoup
+        soup = BeautifulSoup(requests.get(url).text, "html.parser")
+
+        # Get the text but remove the tags
+        text = soup.get_text()
+
+        # If the crawler gets to a page that requires JavaScript, it will stop the crawl
+        if ("You need to enable JavaScript to run this app." in text):
+            print("Unable to parse page " + url + " due to JavaScript being required")
+        text = f'{url} \n'+ text
+        # Otherwise, write the text to the file in the text directory
+        text_name = 'text/'+local_domain+'/'+url[8:].replace("/", "_") + ".txt"
+        text_name = text_name[11:-4].replace('-',' ').replace('_', ' ').replace('#update','')
+        url = text.split('\n')[0]
+        data = (url, text_name, text)
+        texts.append(data)
+
+        # Get the hyperlinks from the URL and add them to the queue
+        for link in get_domain_hyperlinks(local_domain, url):
+            if link not in seen:
+                queue.append(link)
+                seen.add(link)
+
+    return pd.DataFrame(texts, columns = ['url', 'title', 'text' ])
 def crawl(url):
     # Parse the URL and get the domain
     local_domain = urlparse(url).netloc
@@ -188,8 +236,9 @@ def split_into_many(url, text, tokenizer, max_tokens = 500):
 
 def main(full_url):
     full_url, domain = pinecone_functions.get_domain_and_url(full_url)
+    """
     crawl(full_url)
-    print('Crawling completed.')
+    
 
     # Create a list to store the text files
     texts=[]
@@ -208,7 +257,9 @@ def main(full_url):
 
     # Create a dataframe from the list of texts
     df = pd.DataFrame(texts, columns = ['url', 'title', 'text' ])
-
+    """   
+    df = crawl_to_memory(full_url)
+    print('Crawling completed.')
     # Set the text column to be the raw text with the newlines removed
     df['text'] = df.title + ". " + remove_newlines(df.text)
 
