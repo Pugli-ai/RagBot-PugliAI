@@ -10,3 +10,4 @@ plotly
 scipy
 scikit-learn
 pinecone-client
+bs4
