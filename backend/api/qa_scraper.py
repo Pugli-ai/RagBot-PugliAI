@@ -258,6 +258,7 @@ def main(full_url):
     # Create a dataframe from the list of texts
     df = pd.DataFrame(texts, columns = ['url', 'title', 'text' ])
     """   
+    print('Crawling...')
     df = crawl_to_memory(full_url)
     print('Crawling completed.')
     # Set the text column to be the raw text with the newlines removed
@@ -312,7 +313,7 @@ def main(full_url):
 
     print('index created, retrieving index...')
     sleep(2)
-    index = pinecone_functions.retrieve_index()
+    variables_db.PINECONE_INDEX_NAME = pinecone_functions.retrieve_index()
 
     # Convert DataFrame to the desired format
     formatted_data = [
@@ -331,7 +332,7 @@ def main(full_url):
         attempt = 0
         while attempt < max_attempts:
             try:
-                index.upsert([formatted_data[idx]])
+                variables_db.PINECONE_INDEX_NAME.upsert([formatted_data[idx]])
                 print(f'index {idx}/{len(formatted_data)} upserted successfully')
                 break  # Successful upsert, exit retry loop
             except Exception as e:
