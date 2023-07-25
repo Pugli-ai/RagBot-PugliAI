@@ -25,12 +25,12 @@ async def root():
 
 class Response(BaseModel):
     question: str
-    gptkey = str
-    kbid = str
+    gptkey :str
+    kbid : str
 
 @app.post("/api/qa")
 def generate_response(response: Response):
-    answer = qa_run.main(question=response.question, openai_api_key=response.gptkey, pinecone_index_name=response.kbid,  debug=False)
+    answer = qa_run.main(question=response.question, openai_api_key=response.gptkey, pinecone_index_name=response.kbid)
     print(answer)
     return answer
 

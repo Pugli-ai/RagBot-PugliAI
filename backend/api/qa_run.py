@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 import os
-import variables_db
-import pinecone_functions
+from api import variables_db
+from api import pinecone_functions
 
 from openai.embeddings_utils import distances_from_embeddings
 

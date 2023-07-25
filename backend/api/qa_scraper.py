@@ -11,8 +11,8 @@ import tiktoken
 import numpy as np
 from openai.embeddings_utils import distances_from_embeddings, cosine_similarity
 import openai
-import variables_db
-import pinecone_functions
+from api import variables_db
+from api import pinecone_functions
 from time import sleep
 import traceback
 
