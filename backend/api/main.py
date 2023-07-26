@@ -37,7 +37,7 @@ def generate_response(response: Response):
 class Url(BaseModel):
     full_url: str
     
-@app.post("/scrape/start")
+@app.post("/api/scrape")
 async def start_scrape(url: Url):
     qa_scraper.main(url.full_url)
     return {"message": "Scrape finished!"}
