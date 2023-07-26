@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, BackgroundTasks
+
 from api import qa_run
 import pandas as pd
 import numpy as np
@@ -37,10 +38,12 @@ def generate_response(response: Response):
 class Url(BaseModel):
     full_url: str
     
+# Make the start_scrape endpoint asynchronous
 @app.post("/api/scrape")
-async def start_scrape(url: Url):
-    qa_scraper.main(url.full_url)
-    return {"message": "Scrape finished!"}
+async def start_scrape(url: Url, background_tasks: BackgroundTasks):
+    # Run qa_scraper.main in the background using BackgroundTasks
+    background_tasks.add_task(qa_scraper.main, url.full_url)
+    return {"message": "Scrape started! Check logs for progress."}
 
 """
 @app.get("/qa")
@@ -50,4 +53,11 @@ def generate_response(question: str = Query(..., min_length=1)):
     return answer
 
 #http://localhost:8000/qa?question=How%20to%20connect%20Tiledesk%20with%20Telegram
+
+
+@app.post("/api/scrape")
+async def start_scrape(url: Url):
+    qa_scraper.main(url.full_url)
+    return {"message": "Scrape finished!"}
+
 """
