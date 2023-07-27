@@ -15,9 +15,36 @@ from api import variables_db
 from api import pinecone_functions
 from time import sleep
 import traceback
+import json
+from datetime import datetime
 
 # Regex pattern to match a URL
 HTTP_URL_PATTERN = r'^http[s]*://.+'
+
+def create_background_tasks_json():
+    # Define the filename for the JSON file
+    filename = "background_tasks.json"
+
+    # Check if the file already exists
+    if not os.path.exists(filename):
+        # Create a default JSON content for the file
+        default_content = {
+            "https://pugliai.webflow.io/": {"last_time_scrape_started": '2000-01-01 00:00:00', "last_time_scrape_finished": '2000-01-01 00:00:00', "is_running_now": False},
+        }
+
+        # Write the default content to the JSON file
+        with open(filename, "w") as f:
+            f.write(json.dumps(default_content, indent=4))
+
+def get_task_status(url):
+    with open("background_tasks.json", "r") as f:
+        background_tasks = json.load(f)
+        return background_tasks[url]
+
+def get_task_status_all():
+    with open("background_tasks.json", "r") as f:
+        background_tasks = json.load(f)
+        return background_tasks
 
 # Create a class to parse the HTML and get the hyperlinks
 class HyperlinkParser(HTMLParser):
@@ -257,7 +284,15 @@ def main(full_url):
 
     # Create a dataframe from the list of texts
     df = pd.DataFrame(texts, columns = ['url', 'title', 'text' ])
-    """   
+    """ 
+    create_background_tasks_json()
+    background_task = {"last_time_scrape_started": datetime.today().strftime('%Y-%m-%d %H:%M:%S'), "last_time_scrape_finished": None, "is_running_now": True}
+    with open("background_tasks.json", "r") as f:
+        background_tasks = json.load(f)
+        background_tasks[full_url] = background_task
+    with open("background_tasks.json", "w") as f:
+        json.dump(background_tasks, f, indent=4)
+    
     print('Crawling...')
     df = crawl_to_memory(full_url)
     print('Crawling completed.')
@@ -343,6 +378,14 @@ def main(full_url):
                 print(f"Upsert failed for index {idx}, retrying ({attempt}/{max_attempts})...")
                 sleep(2)  # Wait for a short time before retrying
     
+    with open("background_tasks.json", "r") as f:
+        background_tasks = json.load(f)
+        background_tasks[full_url]["last_time_scrape_finished"] = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        background_tasks[full_url]["is_running_now"] = False
+
+    with open("background_tasks.json", "w") as f:
+        json.dump(background_tasks, f, indent=4)
+
     print("Data upsert completed.")
 
 if __name__ == "__main__":

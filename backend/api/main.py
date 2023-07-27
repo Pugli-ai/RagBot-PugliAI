@@ -45,6 +45,15 @@ async def start_scrape(url: Url, background_tasks: BackgroundTasks):
     background_tasks.add_task(qa_scraper.main, url.full_url)
     return {"message": "Scrape started! Check logs for progress."}
 
+@app.post("/api/scrape/status")
+def generate_response(url: Url):
+    status = qa_scraper.get_task_status(url.full_url)
+    return status
+
+@app.post("/api/scrape/statusALL")
+def generate_response(url: Url):
+    status = qa_scraper.get_task_status_all()
+    return status
 """
 @app.get("/qa")
 def generate_response(question: str = Query(..., min_length=1)):
