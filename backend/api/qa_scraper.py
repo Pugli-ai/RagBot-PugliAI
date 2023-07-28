@@ -11,12 +11,17 @@ import tiktoken
 import numpy as np
 from openai.embeddings_utils import distances_from_embeddings, cosine_similarity
 import openai
-from api import variables_db
-from api import pinecone_functions
 from time import sleep
 import traceback
 import json
 from datetime import datetime
+try: 
+    from api import variables_db
+    from api import pinecone_functions
+except:
+    import variables_db
+    import pinecone_functions
+
 
 # Regex pattern to match a URL
 HTTP_URL_PATTERN = r'^http[s]*://.+'
@@ -216,6 +221,37 @@ def crawl(url):
             if link not in seen:
                 queue.append(link)
                 seen.add(link)
+def crawl_deghi():
+    url = "https://www.deghi.it/supporto"  # Replace this with the URL of the webpage you want to fetch
+
+    response = requests.get(url)
+
+    source_code = response.text
+
+    # Parse the HTML source code using BeautifulSoup
+    soup = BeautifulSoup(source_code, "html.parser")
+
+    # Find all the div elements with the specified class name
+    divs_with_class = soup.find_all("div", class_="card border-no mb-5")
+
+    # Create lists to store the data
+    headers = []
+    bodies = []
+
+    # Process the found div elements and extract header and body content
+    for div in divs_with_class:
+        header = div.find("div", class_="card-header").text.strip()
+        body = div.find("div", class_="card-body").text.strip()
+        body = header + "\n\n" + body
+        # remove non ascii from header
+        header = header.encode("ascii", "ignore").decode()
+        headers.append(header)
+        bodies.append(body)
+
+    # Create a Pandas DataFrame
+    ['url', 'title', 'text' ]
+    df = pd.DataFrame({"url": headers, "title": headers, "text": bodies})
+    return df
 
 
 def remove_newlines(serie):
@@ -294,7 +330,12 @@ def main(full_url):
         json.dump(background_tasks, f, indent=4)
     
     print('Crawling...')
-    df = crawl_to_memory(full_url)
+    
+    if full_url=="https://www.deghi.it/supporto/":
+        df = crawl_deghi()
+    else:
+        df = crawl_to_memory(full_url)
+
     print('Crawling completed.')
     # Set the text column to be the raw text with the newlines removed
     df['text'] = df.title + ". " + remove_newlines(df.text)
@@ -390,6 +431,7 @@ def main(full_url):
 
 if __name__ == "__main__":
     # Define root domain to crawl
-    full_url = "https://gethelp.tiledesk.com/"
+    #full_url = "https://gethelp.tiledesk.com/"
+    full_url = "https://www.deghi.it/supporto/"
     main(full_url)
     

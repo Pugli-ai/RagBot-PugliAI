@@ -1,8 +1,12 @@
 import pinecone
-from api import variables_db
 import os
 from urllib.parse import urlparse
 
+try:
+    from api import variables_db
+except:
+    import variables_db
+    
 INDEX= None
 
 def init_pinecone():
