@@ -104,7 +104,7 @@ def init():
     """ Initialize the app's neccessary components
     """
     # Connecting to Pinecone
-    pinecone_functions.init_pinecone()
+    pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
     load_dotenv()
     openai.api_key = variables_db.OPENAI_API_KEY
 
