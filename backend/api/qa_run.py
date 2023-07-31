@@ -4,8 +4,12 @@ import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 import os
-from api import variables_db
-from api import pinecone_functions
+try:
+    from api import variables_db
+    from api import pinecone_functions
+except:
+    import variables_db
+    import pinecone_functions
 
 from openai.embeddings_utils import distances_from_embeddings
 
@@ -110,27 +114,27 @@ init() # initialize the app's neccessary components
 if __name__=="__main__":
 
 
+    #full_url = "https://www.deghi.it/supporto/"
+    full_url= "https://gethelp.tiledesk.com/"
 
-    full_url = "https://gethelp.tiledesk.com/"
+    """
+    question = "Tutti gli articoli su Deghi sono disponibili?"
+    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+    print(f"Question: {question}\nAnswer: {answer}")
+    """ 
+
+    question = "What is tiledesk"
+    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+    print(f"Question: {question}\nAnswer: {answer}")
+
     question = "What day is it?"
     answer = main(question, variables_db.OPENAI_API_KEY, full_url)
     print(f"Question: {question}\nAnswer: {answer}")
 
-    full_url = "https://gethelp.tiledesk.com/"
     question="which javascript code should i copy and paste for installing the widget on my website ? please write me that javascript code"
     answer = main(question, variables_db.OPENAI_API_KEY, full_url)
     print(f"Question: {question}\nAnswer: {answer}")
 
-    full_url = "https://gethelp.tiledesk.com/"
     question="How to connect Tiledesk with Telegram"
     answer = main(question, variables_db.OPENAI_API_KEY, full_url)
     print(f"Question: {question}\nAnswer: {answer}")
-
-
-    full_url = "https://gethelp.tiledesk.com/"
-    question="What is tiledesk?"
-    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-    print(f"Question: {question}\nAnswer: {answer}")
-
-
-

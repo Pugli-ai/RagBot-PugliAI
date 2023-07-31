@@ -26,31 +26,6 @@ except:
 # Regex pattern to match a URL
 HTTP_URL_PATTERN = r'^http[s]*://.+'
 
-def create_background_tasks_json():
-    # Define the filename for the JSON file
-    filename = "background_tasks.json"
-
-    # Check if the file already exists
-    if not os.path.exists(filename):
-        # Create a default JSON content for the file
-        default_content = {
-            "https://pugliai.webflow.io/": {"last_time_scrape_started": '2000-01-01 00:00:00', "last_time_scrape_finished": '2000-01-01 00:00:00', "is_running_now": False},
-        }
-
-        # Write the default content to the JSON file
-        with open(filename, "w") as f:
-            f.write(json.dumps(default_content, indent=4))
-
-def get_task_status(url):
-    with open("background_tasks.json", "r") as f:
-        background_tasks = json.load(f)
-        return background_tasks[url]
-
-def get_task_status_all():
-    with open("background_tasks.json", "r") as f:
-        background_tasks = json.load(f)
-        return background_tasks
-
 # Create a class to parse the HTML and get the hyperlinks
 class HyperlinkParser(HTMLParser):
     def __init__(self):
@@ -253,6 +228,28 @@ def crawl_deghi():
     df = pd.DataFrame({"url": headers, "title": headers, "text": bodies})
     return df
 
+def scraper_status(full_url):
+
+    full_url, domain = pinecone_functions.get_domain_and_url(full_url)
+    index_name = pinecone_functions.url_to_index_name(full_url)
+    variables_db.PINECONE_INDEX_NAME = index_name
+    pinecone_functions.init_pinecone()
+    pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+    q_embeddings = openai.Embedding.create(input=variables_db.eof_index, engine='text-embedding-ada-002')['data'][0]['embedding']
+    try:
+        results = pinecone_functions.INDEX.query(
+        vector=q_embeddings, 
+        top_k=1, 
+        include_metadata=True)
+        if len(results['matches']) <1:
+            return "Scraper is still running forrrrr " + full_url
+        if results['matches'][0]['id'] == variables_db.eof_index:
+             
+            return "Scraper is finished for " + full_url
+        else:
+            return "Scraper is still running for " + full_url
+    except:
+        return "Either the dataset not created yet or the url is not correct"
 
 def remove_newlines(serie):
     serie = serie.str.replace('\n', ' ')
@@ -299,42 +296,16 @@ def split_into_many(url, text, tokenizer, max_tokens = 500):
 
 def main(full_url):
     full_url, domain = pinecone_functions.get_domain_and_url(full_url)
-    """
-    crawl(full_url)
-    
 
-    # Create a list to store the text files
-    texts=[]
-
-    # Get all the text files in the text directory
-    for file in os.listdir("text/" + domain + "/"):
-
-        # Open the file and read the text
-        with open("text/" + domain + "/" + file, "r") as f:
-            text = f.read()
-            url = text.split('\n')[0]
-            # Omit the first 11 lines and the last 4 lines, then replace -, _, and #update with spaces.
-            text_name = file[11:-4].replace('-',' ').replace('_', ' ').replace('#update','')
-            texts.append((url, text_name, text))
-
-
-    # Create a dataframe from the list of texts
-    df = pd.DataFrame(texts, columns = ['url', 'title', 'text' ])
-    """ 
-    create_background_tasks_json()
-    background_task = {"last_time_scrape_started": datetime.today().strftime('%Y-%m-%d %H:%M:%S'), "last_time_scrape_finished": None, "is_running_now": True}
-    with open("background_tasks.json", "r") as f:
-        background_tasks = json.load(f)
-        background_tasks[full_url] = background_task
-    with open("background_tasks.json", "w") as f:
-        json.dump(background_tasks, f, indent=4)
-    
     print('Crawling...')
     
     if full_url=="https://www.deghi.it/supporto/":
         df = crawl_deghi()
     else:
         df = crawl_to_memory(full_url)
+
+    eof_row = {'url': variables_db.eof_index, 'title': variables_db.eof_index, 'text': variables_db.eof_index}
+    df = pd.concat([df, pd.DataFrame([eof_row])], ignore_index=True)
 
     print('Crawling completed.')
     # Set the text column to be the raw text with the newlines removed
@@ -353,7 +324,6 @@ def main(full_url):
 
     shortened = []
 
-
     # Loop through the dataframe
     for row in df.iterrows():
         url = row[1]['url']
@@ -369,7 +339,6 @@ def main(full_url):
         # Otherwise, add the text to the list of shortened texts
         else:
             shortened.append( (url, row[1]['text']) )
-
 
     df = pd.DataFrame(shortened, columns = ['url', 'text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
@@ -418,20 +387,12 @@ def main(full_url):
         
                 print(f"Upsert failed for index {idx}, retrying ({attempt}/{max_attempts})...")
                 sleep(2)  # Wait for a short time before retrying
-    
-    with open("background_tasks.json", "r") as f:
-        background_tasks = json.load(f)
-        background_tasks[full_url]["last_time_scrape_finished"] = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-        background_tasks[full_url]["is_running_now"] = False
-
-    with open("background_tasks.json", "w") as f:
-        json.dump(background_tasks, f, indent=4)
 
     print("Data upsert completed.")
 
 if __name__ == "__main__":
     # Define root domain to crawl
-    #full_url = "https://gethelp.tiledesk.com/"
-    full_url = "https://www.deghi.it/supporto/"
+    full_url = "https://gethelp.tiledesk.com/"
+    #full_url = "https://www.deghi.it/supporto/"
     main(full_url)
     
