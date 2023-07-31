@@ -12,13 +12,16 @@ INDEX= None
 def init_pinecone():
     pinecone.init(
     api_key=variables_db.PINECONE_API_KEY,
-    environment="us-west1-gcp-free"  # find next to API key in console
+    environment=variables_db.PINECONE_API_KEY_ZONE  # find next to API key in console
     )
 
 def create_index(dimention):
     if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
+        print(f"{variables_db.PINECONE_INDEX_NAME} already exists. Deleting the index before creating it again.")
         pinecone.delete_index(variables_db.PINECONE_INDEX_NAME)
-    pinecone.create_index(name=variables_db.PINECONE_INDEX_NAME, metric="cosine", dimension=dimention)
+    else:
+        print(f"Creating {variables_db.PINECONE_INDEX_NAME} index")
+        pinecone.create_index(name=variables_db.PINECONE_INDEX_NAME, metric="cosine", dimension=dimention)
 
 def retrieve_index():
     return pinecone.Index(index_name=variables_db.PINECONE_INDEX_NAME)
