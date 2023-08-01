@@ -13,3 +13,4 @@ pinecone-client
 bs4
 beautifulsoup4
 tiktoken
+langchain==0.0.216
