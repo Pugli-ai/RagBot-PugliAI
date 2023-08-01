@@ -12,6 +12,8 @@ except:
     import pinecone_functions
 
 from openai.embeddings_utils import distances_from_embeddings
+from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
+
 
 def create_context(question, top_k=3, max_len=1800):
     # Get the embeddings for the question
@@ -36,6 +38,46 @@ def create_context(question, top_k=3, max_len=1800):
     
     return "\n\n###\n\n".join(texts), source_url
 
+def conversation(
+    context,
+    question,
+    model="text-davinci-003",
+    max_len=2000,
+    size="ada",
+    debug=False,
+    max_tokens=1500,
+    stop_sequence=None
+):
+        template = """Answer the question based on the context below, and if the question can't be answered based on the context, say \"I don't know\"
+        \n\nContext: {context}\n\n
+        ---\n\nQuestion: {question}
+        \nAnswer:"""
+
+        prompt = PromptTemplate(
+            input_variables=["context", "question"],
+            template=template
+        )
+        LLM = OpenAI(
+            temperature=0,
+            max_tokens=max_tokens,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0,
+            #stop=stop_sequence,
+            model=model,
+            client=openai.ChatCompletion
+        )
+        chatgpt_chain = LLMChain(
+            llm=LLM,
+            prompt=prompt,
+            verbose=False,
+        )
+
+        output = chatgpt_chain.predict(context=context, question=question)
+        return output
+
+
+
 def answer_question(
     model="text-davinci-003",
     question="Am I allowed to publish model outputs to Twitter, without a human review?",
@@ -57,6 +99,7 @@ def answer_question(
 
     try:
         # Create a completions using the question and context
+        """
         response = openai.Completion.create(
             prompt=f"Answer the question based on the context below, and if the question can't be answered based on the context, say \"I don't know\"\n\nContext: {context}\n\n---\n\nQuestion: {question}\nAnswer:",
             temperature=0,
@@ -67,13 +110,14 @@ def answer_question(
             stop=stop_sequence,
             model=model,
         )
-        
-        
-
         # Add the source URL to the answer
         answer = response["choices"][0]["text"].strip()
+        """
+        conversation_output = conversation(context, question)
+        answer =  conversation_output
+ 
         dunno_list = ["I don't know", "I don’t know", "I do not know", "I don’t know", "I don't know.", "I don’t know.", "I do not know.", "I don’t know."]
-        if answer in dunno_list:
+        if answer.strip() in dunno_list:
             source_url = None
             success = False
         else:
