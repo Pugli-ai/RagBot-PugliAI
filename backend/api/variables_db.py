@@ -1,5 +1,3 @@
-import os
-
 OPENAI_API_KEY= ''
 PINECONE_API_KEY =  ''
 PINECONE_INDEX_NAME = ''
@@ -11,6 +9,3 @@ OPENAI_API_KEY= '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'
 #PINECONE_API_KEY_ZONE = 'us-west1-gcp-free'
 PINECONE_API_KEY = '6d696a56-884d-4679-b357-eb429101c795' #tiledek pinecone api
 PINECONE_API_KEY_ZONE = 'eu-west4-gcp' #tiledek pinecone api zone
-
-
-

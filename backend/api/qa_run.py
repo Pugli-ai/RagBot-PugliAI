@@ -7,12 +7,15 @@ import os
 try:
     from api import variables_db
     from api import pinecone_functions
+    
 except:
     import variables_db
     import pinecone_functions
 
 from openai.embeddings_utils import distances_from_embeddings
 from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
+import traceback
+
 
 
 def create_context(question, top_k=3, max_len=1800):
@@ -123,25 +126,37 @@ def answer_question(
         else:
             success = True
 
-        return {"answer": answer, "source_url": source_url, "success": success}
+        return {"answer": answer, "source_url": source_url, "success": success, "error_message": None}
     except Exception as e:
-        print(e)
-        return {"answer": "Error!", "source_url": None, "success": False}
+        error_message = traceback.format_exc().splitlines()
+        error_message = [x for x in error_message if x.strip()]
+        error_message = error_message[-1]
+        return {"answer": "Error!", "source_url": None, "success": False, "error_message": str(error_message)}
 
 
 def main(question, openai_api_key, pinecone_index_name):
-    if variables_db.OPENAI_API_KEY != openai_api_key:
-        print('Changing OPENAI_API_KEY')
-        variables_db.OPENAI_API_KEY = openai_api_key
-        openai.api_key = variables_db.OPENAI_API_KEY
+    try: 
+        if variables_db.OPENAI_API_KEY != openai_api_key:
+            print('Changing OPENAI_API_KEY')
+            variables_db.OPENAI_API_KEY = openai_api_key
+            openai.api_key = variables_db.OPENAI_API_KEY
 
-    pinecone_index_name = pinecone_functions.url_to_index_name(pinecone_index_name)
-    if variables_db.PINECONE_INDEX_NAME != pinecone_index_name:
-        print('Changing PINECONE_INDEX')
-        variables_db.PINECONE_INDEX_NAME = pinecone_index_name
-        pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-
-    return answer_question(question=question, debug=False)
+        pinecone_index_name = pinecone_functions.url_to_index_name(pinecone_index_name)
+        if not pinecone_functions.is_db_exists(pinecone_index_name):
+            return {"answer": "Error!", "source_url": None, "success": False, "error_message": f"There is no database with name {pinecone_index_name}"}
+        if variables_db.PINECONE_INDEX_NAME != pinecone_index_name:
+            print('Changing PINECONE_INDEX')
+            variables_db.PINECONE_INDEX_NAME = pinecone_index_name
+            pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+    
+        response = answer_question(question=question, debug=False)
+    except Exception as e :
+        error_message = traceback.format_exc().splitlines()
+        error_message = [x for x in error_message if x.strip()]
+        error_message = error_message[-1]
+        response = {"answer": "Error!", "source_url": None, "success": False, "error_message": str(error_message)}
+    
+    return response
 
 
 def init():

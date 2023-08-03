@@ -1,13 +1,29 @@
 import pinecone
 import os
 from urllib.parse import urlparse
-
+import openai
 try:
     from api import variables_db
 except:
     import variables_db
     
 INDEX= None
+
+def is_api_key_valid(api_key):
+    try:
+        openai.api_key = api_key
+        openai.Completion.create(engine="davinci", prompt="Test")
+        return True
+    except Exception as e:
+        return False
+
+def is_db_exists(db_name):
+    """ Check if a database exists
+    """
+    if db_name in pinecone.list_indexes():
+        return True
+    else:
+        return False
 
 def init_pinecone(api_key, api_key_zone):
     pinecone.init(
@@ -16,7 +32,7 @@ def init_pinecone(api_key, api_key_zone):
     )
 
 def create_index(dimention):
-    if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
+    if is_db_exists(variables_db.PINECONE_INDEX_NAME ):
         print(f"{variables_db.PINECONE_INDEX_NAME} already exists. Skipping creation")
     else:
         print(f"Creating {variables_db.PINECONE_INDEX_NAME} index")

@@ -1,11 +1,16 @@
 from fastapi import FastAPI, Query, BackgroundTasks
-
 from api import qa_run
-import pandas as pd
-import numpy as np
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from api import qa_scraper
+import traceback
+from fastapi.responses import JSONResponse
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from api import pinecone_functions
+class ErrorResponse(BaseModel):
+    detail: str
+
 
 app = FastAPI()
 
@@ -23,33 +28,48 @@ app.add_middleware(
 async def root():
     return {"message": "Hello World"}
 
-
-class Response(BaseModel):
+class QA_Inputs(BaseModel):
     question: str
     gptkey :str
     kbid : str
 
+class Scraper_Inputs(BaseModel):
+    full_url: str
+    gptkey: str
+
+class Status_Inputs(BaseModel):
+    full_url: str
+
 @app.post("/api/qa")
-def generate_response(response: Response):
-    answer = qa_run.main(question=response.question, openai_api_key=response.gptkey, pinecone_index_name=response.kbid)
-    print(answer)
+def generate_response(inputs: QA_Inputs):
+    answer = qa_run.main(question=inputs.question, openai_api_key=inputs.gptkey, pinecone_index_name=inputs.kbid)
+
     return answer
 
-class Url(BaseModel):
-    full_url: str
     
 # Make the start_scrape endpoint asynchronous
 @app.post("/api/scrape")
-async def start_scrape(url: Url, background_tasks: BackgroundTasks):
+async def start_scrape(inputs: Scraper_Inputs, background_tasks: BackgroundTasks):
+    if not pinecone_functions.is_api_key_valid(inputs.gptkey):
+        return {"message": "Invalid Openai API key"}
     # Run qa_scraper.main in the background using BackgroundTasks
-    background_tasks.add_task(qa_scraper.main, url.full_url)
+    background_tasks.add_task(qa_scraper.main, inputs.full_url, inputs.gptkey)
     return {"message": "Scrape started! Check logs for progress."}
 
 @app.post("/api/scrape/status")
-def generate_response(url: Url):
-    status = qa_scraper.scraper_status(url.full_url)
+def generate_response(inputs: Status_Inputs):
+    status = qa_scraper.scraper_status(inputs.full_url)
 
     return {"status": status}
+
+@app.exception_handler(Exception)
+async def custom_exception_handler(request: Request, exc: Exception):
+    error_message = traceback.format_exc().splitlines()
+    error_message = [x for x in error_message if x.strip()]
+    error_message = error_message[-1]
+    message = {"answer": "Error!", "source_url": None, "success": False, "error_message1": error_message }
+    return JSONResponse(status_code=500, content=message)
+
 
 """
 @app.get("/qa")
@@ -62,7 +82,7 @@ def generate_response(question: str = Query(..., min_length=1)):
 
 
 @app.post("/api/scrape")
-async def start_scrape(url: Url):
+async def start_scrape(url: Scraper_Inputs):
     qa_scraper.main(url.full_url)
     return {"message": "Scrape finished!"}
 

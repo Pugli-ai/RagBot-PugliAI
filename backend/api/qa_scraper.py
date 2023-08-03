@@ -295,7 +295,8 @@ def convertdf2_pineconetype(df):
         datas.append(data)
     return pd.DataFrame(datas)
 
-def main(full_url):
+def main(full_url: str, gptkey:str):
+    variables_db.OPENAI_API_KEY = gptkey
     full_url, domain = pinecone_functions.get_domain_and_url(full_url)
     
     pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
