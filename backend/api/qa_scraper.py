@@ -42,13 +42,14 @@ class HyperlinkParser(HTMLParser):
         if tag == "a" and "href" in attrs:
             self.hyperlinks.append(attrs["href"])
 
-# Function to get the hyperlinks from a URL
 def get_hyperlinks(url):
     
     # Try to open the URL and read the HTML
     try:
+        req = urllib.request.Request(url, 
+            headers={'User-Agent': 'Mozilla/5.0'})
         # Open the URL and read the HTML
-        with urllib.request.urlopen(url) as response:
+        with urllib.request.urlopen(req) as response:
 
             # If the response is not HTML, return an empty list
             if not response.info().get('Content-Type').startswith("text/html"):
@@ -65,6 +66,7 @@ def get_hyperlinks(url):
     parser.feed(html)
 
     return parser.hyperlinks
+
 
 # Function to get the hyperlinks from a URL that are within the same domain
 def get_domain_hyperlinks(local_domain, url):
@@ -344,9 +346,9 @@ def main(full_url: str, gptkey:str):
 
 if __name__ == "__main__":
     # Define root domain to crawl
-    #full_url = "https://gethelp.tiledesk.com/"
-    full_url = "https://www.deghi.it/supporto/"
-    main(full_url)
+    full_url = "https://gethelp.tiledesk.com/"
+    #full_url = "https://www.deghi.it/supporto/"
+    main(full_url, variables_db.OPENAI_API_KEY)
     
 
 
@@ -407,4 +409,28 @@ def crawl(url):
             if link not in seen:
                 queue.append(link)
                 seen.add(link)
+
+                
+def get_hyperlinks(url):
+    
+    # Try to open the URL and read the HTML
+    try:
+        # Open the URL and read the HTML
+        with urllib.request.urlopen(url) as response:
+
+            # If the response is not HTML, return an empty list
+            if not response.info().get('Content-Type').startswith("text/html"):
+                return []
+            
+            # Decode the HTML
+            html = response.read().decode('utf-8')
+    except Exception as e:
+        print(e)
+        return []
+
+    # Create the HTML Parser and then Parse the HTML to get hyperlinks
+    parser = HyperlinkParser()
+    parser.feed(html)
+
+    return parser.hyperlinks
 """

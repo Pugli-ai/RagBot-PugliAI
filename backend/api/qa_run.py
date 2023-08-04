@@ -15,6 +15,8 @@ except:
 from openai.embeddings_utils import distances_from_embeddings
 from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
 import traceback
+from langchain.chat_models import ChatOpenAI
+
 
 
 
@@ -44,7 +46,7 @@ def create_context(question, top_k=3, max_len=1800):
 def conversation(
     context,
     question,
-    model="text-davinci-003",
+    model="gpt-4",
     max_len=2000,
     size="ada",
     debug=False,
@@ -60,15 +62,14 @@ def conversation(
             input_variables=["context", "question"],
             template=template
         )
-        LLM = OpenAI(
+        LLM = ChatOpenAI(
             temperature=0,
             max_tokens=max_tokens,
-            top_p=1,
-            frequency_penalty=0,
-            presence_penalty=0,
+            #top_p=1,
+            #frequency_penalty=0,
+            #presence_penalty=0,
             #stop=stop_sequence,
-            model=model,
-            client=openai.ChatCompletion
+            model=model
         )
         chatgpt_chain = LLMChain(
             llm=LLM,
@@ -175,25 +176,36 @@ if __name__=="__main__":
 
     #full_url = "https://www.deghi.it/supporto/"
     full_url= "https://gethelp.tiledesk.com/"
+    full_url = "https://docs.pinecone.io/"
 
-    """
-    question = "Tutti gli articoli su Deghi sono disponibili?"
-    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-    print(f"Question: {question}\nAnswer: {answer}")
-    """ 
+    if full_url == "https://gethelp.tiledesk.com/":
 
-    question = "What is tiledesk"
-    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-    print(f"Question: {question}\nAnswer: {answer}")
+        question = "What is tiledesk?"
+        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        print(f"Question: {question}\nAnswer: {answer}")
 
-    question = "What day is it?"
-    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-    print(f"Question: {question}\nAnswer: {answer}")
+        question = "What day is it?"
+        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        print(f"Question: {question}\nAnswer: {answer}")
 
-    question="which javascript code should i copy and paste for installing the widget on my website ? please write me that javascript code"
-    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-    print(f"Question: {question}\nAnswer: {answer}")
+        question="which javascript code should i copy and paste for installing the widget on my website ? please write me that javascript code"
+        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        print(f"Question: {question}\nAnswer: {answer}")
 
-    question="How to connect Tiledesk with Telegram"
-    answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-    print(f"Question: {question}\nAnswer: {answer}")
+        question="How to connect Tiledesk with Telegram"
+        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        print(f"Question: {question}\nAnswer: {answer}")
+
+    elif full_url == "https://www.deghi.it/supporto/":
+        question = "Tutti gli articoli su Deghi sono disponibili?"
+        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        print(f"Question: {question}\nAnswer: {answer}")
+
+    elif full_url == "https://docs.pinecone.io/":
+        question = "What is pinecone?"
+        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        print(f"Question: {question}\nAnswer: {answer}")
+
+        question = "How to create an index?"
+        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        print(f"Question: {question}\nAnswer: {answer}")
