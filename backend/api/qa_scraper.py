@@ -15,20 +15,24 @@ from time import sleep
 import traceback
 import json
 from datetime import datetime
-try: 
+
+# Attempt to import necessary modules from the API, if not available, import them directly.
+try:
     from api import variables_db
     from api import pinecone_functions
-except:
+except ImportError:
     import variables_db
     import pinecone_functions
 import pinecone
-
 
 # Regex pattern to match a URL
 HTTP_URL_PATTERN = r'^http[s]*://.+'
 
 class HyperlinkParser(HTMLParser):
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Initialize the HyperlinkParser.
+        """
         super().__init__()
         self.hyperlinks = []
         self.value_blacklist = [
@@ -37,14 +41,29 @@ class HyperlinkParser(HTMLParser):
             'mailto:', 'tel:'
         ]
 
+    def handle_starttag(self, tag: str, attrs: tuple) -> None:
+        """
+        Handle the start tag of an HTML element.
 
-    def handle_starttag(self, tag, attrs):
+        Args:
+            tag (str): The tag name.
+            attrs (tuple): Attributes of the tag.
+        """
         if tag == 'a':
             for attr, value in attrs:
                 if attr == 'href' and value not in self.value_blacklist:
                     self.hyperlinks.append(value)
 
-def get_hyperlinks(url):
+def get_hyperlinks(url: str) -> list:
+    """
+    Fetch hyperlinks from a given URL.
+
+    Args:
+        url (str): The URL to fetch hyperlinks from.
+
+    Returns:
+        list: List of hyperlinks.
+    """
     headers = {'User-Agent': 'Mozilla/5.0'}
 
     try:
@@ -65,8 +84,17 @@ def get_hyperlinks(url):
 
     return parser.hyperlinks
 
-# Function to get the hyperlinks from a URL that are within the same domain
-def get_domain_hyperlinks(local_domain, url):
+def get_domain_hyperlinks(local_domain: str, url: str) -> list:
+    """
+    Fetch hyperlinks from a URL that are within the same domain.
+
+    Args:
+        local_domain (str): The domain to filter links by.
+        url (str): The URL to fetch hyperlinks from.
+
+    Returns:
+        list: List of hyperlinks within the domain.
+    """
     clean_links = []
     for link in set(get_hyperlinks(url)):
         clean_link = None
@@ -94,7 +122,16 @@ def get_domain_hyperlinks(local_domain, url):
     # Return the list of hyperlinks that are within the same domain
     return list(set(clean_links))
 
-def crawl_to_memory(url):
+def crawl_to_memory(url: str) -> pd.DataFrame:
+    """
+    Crawl a website and store its content in memory.
+
+    Args:
+        url (str): The URL of the website to crawl.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the crawled content.
+    """
     # Parse the URL and get the domain
     local_domain = urlparse(url).netloc
 
@@ -104,20 +141,18 @@ def crawl_to_memory(url):
     # Create a set to store the URLs that have already been seen (no duplicates)
     seen = set([url])
 
-    texts= []
+    texts = []
     # While the queue is not empty, continue crawling
     while queue:
         # Get the next URL from the queue
         url = queue.pop()
-        #if url does not end with /, add it
+        # If url does not end with /, add it
         url = url.strip()
         if not url.endswith("/"):
             url += "/"
         
-        print(url) # for debugging and to see the progress
+        print(url)  # For debugging and to see the progress
 
-        # Save text from the url to a <url>.txt file
-        
         # Get the text from the URL using BeautifulSoup
         soup = BeautifulSoup(requests.get(url).text, "html.parser")
 
@@ -129,8 +164,8 @@ def crawl_to_memory(url):
             print("Unable to parse page " + url + " due to JavaScript being required")
             continue
         # Otherwise, write the text to the file in the text directory
-        text_name = 'text/'+local_domain+'/'+url[8:].replace("/", "_") + ".txt"
-        text_name = text_name[11:-4].replace('-',' ').replace('_', ' ').replace('#update','')
+        text_name = 'text/' + local_domain + '/' + url[8:].replace("/", "_") + ".txt"
+        text_name = text_name[11:-4].replace('-', ' ').replace('_', ' ').replace('#update', '')
 
         data = (url, text_name, text)
         texts.append(data)
@@ -141,20 +176,37 @@ def crawl_to_memory(url):
                 queue.append(link)
                 seen.add(link)
 
-    return pd.DataFrame(texts, columns = ['url', 'title', 'text' ]).drop_duplicates(keep='last')
+    return pd.DataFrame(texts, columns=['url', 'title', 'text']).drop_duplicates(keep='last')
 
+def remove_newlines(serie: pd.Series) -> pd.Series:
+    """
+    Remove newlines and extra spaces from a pandas Series.
 
-def remove_newlines(serie):
+    Args:
+        serie (pd.Series): Series containing text data.
+
+    Returns:
+        pd.Series: Cleaned series.
+    """
     serie = serie.str.replace('\n', ' ')
     serie = serie.str.replace('\\n', ' ')
     serie = serie.str.replace('  ', ' ')
     serie = serie.str.replace('  ', ' ')
     return serie
 
+def split_into_many(url: str, text: str, tokenizer, max_tokens: int = 500) -> list:
+    """
+    Split text into chunks based on a maximum number of tokens.
 
-# Function to split the text into chunks of a maximum number of tokens
-def split_into_many(url, text, tokenizer, max_tokens = 500):
+    Args:
+        url (str): The URL associated with the text.
+        text (str): The text to be split.
+        tokenizer: The tokenizer to use.
+        max_tokens (int, optional): Maximum tokens per chunk. Defaults to 500.
 
+    Returns:
+        list: List of text chunks.
+    """
     # Split the text into sentences
     sentences = text.split('. ')
 
@@ -187,8 +239,17 @@ def split_into_many(url, text, tokenizer, max_tokens = 500):
 
     return chunks
 
-def preprocess(df):
-# Set the text column to be the raw text with the newlines removed
+def preprocess(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Preprocess a DataFrame containing website content.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing website content.
+
+    Returns:
+        pd.DataFrame: Preprocessed DataFrame.
+    """
+    # Set the text column to be the raw text with the newlines removed
     df['text'] = df.title + ". " + remove_newlines(df.text)
 
     # Load the cl100k_base tokenizer which is designed to work with the ada-002 model
@@ -196,9 +257,6 @@ def preprocess(df):
 
     # Tokenize the text and save the number of tokens to a new column
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
-
-    # Visualize the distribution of the number of tokens per row using a histogram
-    #df.n_tokens.hist()
 
     max_tokens = 500
 
@@ -213,14 +271,13 @@ def preprocess(df):
 
         # If the number of tokens is greater than the max number of tokens, split the text into chunks
         if row[1]['n_tokens'] > max_tokens:
-
             shortened += split_into_many(url, row[1]['text'], tokenizer=tokenizer, max_tokens=max_tokens)
         
         # Otherwise, add the text to the list of shortened texts
         else:
-            shortened.append( (url, row[1]['text']) )
+            shortened.append((url, row[1]['text']))
 
-    df = pd.DataFrame(shortened, columns = ['url', 'text'])
+    df = pd.DataFrame(shortened, columns=['url', 'text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
 
     openai.api_key = variables_db.OPENAI_API_KEY
@@ -228,19 +285,31 @@ def preprocess(df):
     df['embeddings'] = df.text.apply(lambda x: openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding'])
     return df
 
-def convertdf2_pineconetype(df):
+def convertdf2_pineconetype(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Convert a pandas dataframe to a metadata type
+    Convert a pandas dataframe to a metadata type suitable for Pinecone.
+
+    Args:
+        df (pd.DataFrame): DataFrame to convert.
+
+    Returns:
+        pd.DataFrame: Converted DataFrame.
     """
     datas = []
     for row in df.itertuples():
         metadata = {'url': row.url, 'n_tokens': row.n_tokens, 'text': row.text}
-        data = {'id': row.url, 'values':row.embeddings, 'metadata': metadata}
+        data = {'id': row.url, 'values': row.embeddings, 'metadata': metadata}
         datas.append(data)
     return pd.DataFrame(datas)
 
-def crawl_deghi():
-    url = "https://www.deghi.it/supporto"  # Replace this with the URL of the webpage you want to fetch
+def crawl_deghi() -> pd.DataFrame:
+    """
+    Temporary method for scraping the deghi website.
+
+    Returns:
+        pd.DataFrame: DataFrame containing scraped content.
+    """
+    url = "https://www.deghi.it/supporto"
 
     response = requests.get(url)
 
@@ -261,28 +330,34 @@ def crawl_deghi():
         header = div.find("div", class_="card-header").text.strip()
         body = div.find("div", class_="card-body").text.strip()
         body = header + "\n\n" + body
-        # remove non ascii from header
+        # Remove non-ASCII characters from header
         header = header.encode("ascii", "ignore").decode()
         headers.append(header)
         bodies.append(body)
 
     # Create a Pandas DataFrame
+    return pd.DataFrame({"url": headers, "title": headers, "text": bodies})
 
-    return  pd.DataFrame({"url": headers, "title": headers, "text": bodies})
+def scraper_status(full_url: str) -> str:
+    """
+    Check the status of the scraper for a given URL.
 
-def scraper_status(full_url):
+    Args:
+        full_url (str): URL to check the scraper status for.
+
+    Returns:
+        str: Status message.
+    """
     try:
         variables_db.PINECONE_INDEX_NAME = pinecone_functions.url_to_index_name(full_url)
 
         pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
 
-
-
-        #check if there is an index with that name in pinecone
+        # Check if there is an index with that name in pinecone
         if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
             pinecone_functions.INDEX = pinecone_functions.retrieve_index()
             result = pinecone_functions.INDEX.fetch(ids=[variables_db.eof_index])
-            if len(result['vectors']) <1:
+            if len(result['vectors']) < 1:
                 message = f"Crawling is started but not finished yet for {full_url}"
             else:
                 message = f"Crawling is finished for {full_url}"
@@ -293,7 +368,14 @@ def scraper_status(full_url):
         message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
     return message
 
-def main(full_url: str, gptkey:str):
+def main(full_url: str, gptkey: str) -> None:
+    """
+    Main function to start the scraping process.
+
+    Args:
+        full_url (str): URL to scrape.
+        gptkey (str): OpenAI API key.
+    """
     variables_db.OPENAI_API_KEY = gptkey
     full_url, domain = pinecone_functions.get_domain_and_url(full_url)
     
@@ -309,7 +391,7 @@ def main(full_url: str, gptkey:str):
 
     print('Crawling...')
     
-    if full_url=="https://www.deghi.it/supporto/":
+    if full_url == "https://www.deghi.it/supporto/":
         df = crawl_deghi()
     else:
         df = crawl_to_memory(full_url)
@@ -321,10 +403,10 @@ def main(full_url: str, gptkey:str):
     
     df = preprocess(df)
 
-    dimention = len(df.iloc[0]['embeddings'])
+    dimension = len(df.iloc[0]['embeddings'])
 
     print('creating index...')
-    pinecone_functions.create_index(dimention)
+    pinecone_functions.create_index(dimension)
 
     print('index created, retrieving index...')
     sleep(2)
@@ -335,6 +417,7 @@ def main(full_url: str, gptkey:str):
     pinecone_functions.INDEX.upsert_from_dataframe(df, batch_size=2)
 
     print("Data upsert completed.")
+
 
 ########################################################################################################################################################
 ########################################################################################################################################################
