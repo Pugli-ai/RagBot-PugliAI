@@ -18,8 +18,6 @@ import traceback
 from langchain.chat_models import ChatOpenAI
 
 
-
-
 def create_context(question, top_k=3, max_len=1800):
     # Get the embeddings for the question
     q_embeddings = openai.Embedding.create(input=question, engine='text-embedding-ada-002')['data'][0]['embedding']
@@ -75,6 +73,7 @@ def conversation(
             llm=LLM,
             prompt=prompt,
             verbose=False,
+            
         )
 
         output = chatgpt_chain.predict(context=context, question=question)
@@ -176,7 +175,7 @@ if __name__=="__main__":
 
     #full_url = "https://www.deghi.it/supporto/"
     full_url= "https://gethelp.tiledesk.com/"
-    full_url = "https://docs.pinecone.io/"
+    #full_url = "https://docs.pinecone.io/"
 
     if full_url == "https://gethelp.tiledesk.com/":
 
