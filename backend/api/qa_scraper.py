@@ -15,48 +15,65 @@ from time import sleep
 import traceback
 import json
 from datetime import datetime
-try: 
+
+# Attempt to import necessary modules from the API, if not available, import them directly.
+try:
     from api import variables_db
     from api import pinecone_functions
-except:
+except ImportError:
     import variables_db
     import pinecone_functions
 import pinecone
 
-
 # Regex pattern to match a URL
 HTTP_URL_PATTERN = r'^http[s]*://.+'
 
-# Create a class to parse the HTML and get the hyperlinks
 class HyperlinkParser(HTMLParser):
-    def __init__(self):
+    def __init__(self) -> None:
+        """
+        Initialize the HyperlinkParser.
+        """
         super().__init__()
-        # Create a list to store the hyperlinks
         self.hyperlinks = []
+        self.value_blacklist = [
+            '.', '..', './', '../', '/', '#',
+            'javascript:void(0);', 'javascript:void(0)', 
+            'mailto:', 'tel:'
+        ]
 
-    # Override the HTMLParser's handle_starttag method to get the hyperlinks
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
+    def handle_starttag(self, tag: str, attrs: tuple) -> None:
+        """
+        Handle the start tag of an HTML element.
 
-        # If the tag is an anchor tag and it has an href attribute, add the href attribute to the list of hyperlinks
-        if tag == "a" and "href" in attrs:
-            self.hyperlinks.append(attrs["href"])
+        Args:
+            tag (str): The tag name.
+            attrs (tuple): Attributes of the tag.
+        """
+        if tag == 'a':
+            for attr, value in attrs:
+                if attr == 'href' and value not in self.value_blacklist:
+                    self.hyperlinks.append(value)
 
-def get_hyperlinks(url):
-    
-    # Try to open the URL and read the HTML
+def get_hyperlinks(url: str) -> list:
+    """
+    Fetch hyperlinks from a given URL.
+
+    Args:
+        url (str): The URL to fetch hyperlinks from.
+
+    Returns:
+        list: List of hyperlinks.
+    """
+    headers = {'User-Agent': 'Mozilla/5.0'}
+
     try:
-        req = urllib.request.Request(url, 
-            headers={'User-Agent': 'Mozilla/5.0'})
-        # Open the URL and read the HTML
-        with urllib.request.urlopen(req) as response:
-
-            # If the response is not HTML, return an empty list
-            if not response.info().get('Content-Type').startswith("text/html"):
-                return []
-            
-            # Decode the HTML
-            html = response.read().decode('utf-8')
+        response = requests.get(url, headers=headers)
+        
+        # If the response is not HTML, return an empty list
+        if not response.headers.get('Content-Type').startswith("text/html"):
+            return []
+        
+        html = response.text
     except Exception as e:
         print(e)
         return []
@@ -67,9 +84,17 @@ def get_hyperlinks(url):
 
     return parser.hyperlinks
 
+def get_domain_hyperlinks(local_domain: str, url: str) -> list:
+    """
+    Fetch hyperlinks from a URL that are within the same domain.
 
-# Function to get the hyperlinks from a URL that are within the same domain
-def get_domain_hyperlinks(local_domain, url):
+    Args:
+        local_domain (str): The domain to filter links by.
+        url (str): The URL to fetch hyperlinks from.
+
+    Returns:
+        list: List of hyperlinks within the domain.
+    """
     clean_links = []
     for link in set(get_hyperlinks(url)):
         clean_link = None
@@ -97,7 +122,16 @@ def get_domain_hyperlinks(local_domain, url):
     # Return the list of hyperlinks that are within the same domain
     return list(set(clean_links))
 
-def crawl_to_memory(url):
+def crawl_to_memory(url: str) -> pd.DataFrame:
+    """
+    Crawl a website and store its content in memory.
+
+    Args:
+        url (str): The URL of the website to crawl.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the crawled content.
+    """
     # Parse the URL and get the domain
     local_domain = urlparse(url).netloc
 
@@ -107,21 +141,18 @@ def crawl_to_memory(url):
     # Create a set to store the URLs that have already been seen (no duplicates)
     seen = set([url])
 
-    texts= []
+    texts = []
     # While the queue is not empty, continue crawling
     while queue:
         # Get the next URL from the queue
         url = queue.pop()
-        #if url does not end with /, add it
-        url = url.split()[0]
+        # If url does not end with /, add it
+        url = url.strip()
         if not url.endswith("/"):
             url += "/"
         
-        print(url) # for debugging and to see the progress
+        print(url)  # For debugging and to see the progress
 
-        # Save text from the url to a <url>.txt file
-        #with open('text/'+local_domain+'/'+url[8:].replace("/", "_") + ".txt", "w") as f:
-        
         # Get the text from the URL using BeautifulSoup
         soup = BeautifulSoup(requests.get(url).text, "html.parser")
 
@@ -131,11 +162,11 @@ def crawl_to_memory(url):
         # If the crawler gets to a page that requires JavaScript, it will stop the crawl
         if ("You need to enable JavaScript to run this app." in text):
             print("Unable to parse page " + url + " due to JavaScript being required")
-        text = f'{url} \n'+ text
+            continue
         # Otherwise, write the text to the file in the text directory
-        text_name = 'text/'+local_domain+'/'+url[8:].replace("/", "_") + ".txt"
-        text_name = text_name[11:-4].replace('-',' ').replace('_', ' ').replace('#update','')
-        url = text.split('\n')[0]
+        text_name = 'text/' + local_domain + '/' + url[8:].replace("/", "_") + ".txt"
+        text_name = text_name[11:-4].replace('-', ' ').replace('_', ' ').replace('#update', '')
+
         data = (url, text_name, text)
         texts.append(data)
 
@@ -145,73 +176,37 @@ def crawl_to_memory(url):
                 queue.append(link)
                 seen.add(link)
 
-    return pd.DataFrame(texts, columns = ['url', 'title', 'text' ])
+    return pd.DataFrame(texts, columns=['url', 'title', 'text']).drop_duplicates(keep='last')
 
-def crawl_deghi():
-    url = "https://www.deghi.it/supporto"  # Replace this with the URL of the webpage you want to fetch
+def remove_newlines(serie: pd.Series) -> pd.Series:
+    """
+    Remove newlines and extra spaces from a pandas Series.
 
-    response = requests.get(url)
+    Args:
+        serie (pd.Series): Series containing text data.
 
-    source_code = response.text
-
-    # Parse the HTML source code using BeautifulSoup
-    soup = BeautifulSoup(source_code, "html.parser")
-
-    # Find all the div elements with the specified class name
-    divs_with_class = soup.find_all("div", class_="card border-no mb-5")
-
-    # Create lists to store the data
-    headers = []
-    bodies = []
-
-    # Process the found div elements and extract header and body content
-    for div in divs_with_class:
-        header = div.find("div", class_="card-header").text.strip()
-        body = div.find("div", class_="card-body").text.strip()
-        body = header + "\n\n" + body
-        # remove non ascii from header
-        header = header.encode("ascii", "ignore").decode()
-        headers.append(header)
-        bodies.append(body)
-
-    # Create a Pandas DataFrame
-
-    return  pd.DataFrame({"url": headers, "title": headers, "text": bodies})
-
-def scraper_status(full_url):
-    try:
-        variables_db.PINECONE_INDEX_NAME = pinecone_functions.url_to_index_name(full_url)
-
-        pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
-
-
-
-        #check if there is an index with that name in pinecone
-        if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
-            pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-            result = pinecone_functions.INDEX.fetch(ids=[variables_db.eof_index])
-            if len(result['vectors']) <1:
-                message = f"Crawling is started but not finished yet for {full_url}"
-            else:
-                message = f"Crawling is finished for {full_url}"
-            
-        else:
-            message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
-    except:
-        message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
-    return message
-
-def remove_newlines(serie):
+    Returns:
+        pd.Series: Cleaned series.
+    """
     serie = serie.str.replace('\n', ' ')
     serie = serie.str.replace('\\n', ' ')
     serie = serie.str.replace('  ', ' ')
     serie = serie.str.replace('  ', ' ')
     return serie
 
+def split_into_many(url: str, text: str, tokenizer, max_tokens: int = 500) -> list:
+    """
+    Split text into chunks based on a maximum number of tokens.
 
-# Function to split the text into chunks of a maximum number of tokens
-def split_into_many(url, text, tokenizer, max_tokens = 500):
+    Args:
+        url (str): The URL associated with the text.
+        text (str): The text to be split.
+        tokenizer: The tokenizer to use.
+        max_tokens (int, optional): Maximum tokens per chunk. Defaults to 500.
 
+    Returns:
+        list: List of text chunks.
+    """
     # Split the text into sentences
     sentences = text.split('. ')
 
@@ -244,9 +239,17 @@ def split_into_many(url, text, tokenizer, max_tokens = 500):
 
     return chunks
 
+def preprocess(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Preprocess a DataFrame containing website content.
 
-def preprocess(df):
-# Set the text column to be the raw text with the newlines removed
+    Args:
+        df (pd.DataFrame): DataFrame containing website content.
+
+    Returns:
+        pd.DataFrame: Preprocessed DataFrame.
+    """
+    # Set the text column to be the raw text with the newlines removed
     df['text'] = df.title + ". " + remove_newlines(df.text)
 
     # Load the cl100k_base tokenizer which is designed to work with the ada-002 model
@@ -254,9 +257,6 @@ def preprocess(df):
 
     # Tokenize the text and save the number of tokens to a new column
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
-
-    # Visualize the distribution of the number of tokens per row using a histogram
-    #df.n_tokens.hist()
 
     max_tokens = 500
 
@@ -271,14 +271,13 @@ def preprocess(df):
 
         # If the number of tokens is greater than the max number of tokens, split the text into chunks
         if row[1]['n_tokens'] > max_tokens:
-
             shortened += split_into_many(url, row[1]['text'], tokenizer=tokenizer, max_tokens=max_tokens)
         
         # Otherwise, add the text to the list of shortened texts
         else:
-            shortened.append( (url, row[1]['text']) )
+            shortened.append((url, row[1]['text']))
 
-    df = pd.DataFrame(shortened, columns = ['url', 'text'])
+    df = pd.DataFrame(shortened, columns=['url', 'text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
 
     openai.api_key = variables_db.OPENAI_API_KEY
@@ -286,18 +285,97 @@ def preprocess(df):
     df['embeddings'] = df.text.apply(lambda x: openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding'])
     return df
 
-def convertdf2_pineconetype(df):
+def convertdf2_pineconetype(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Convert a pandas dataframe to a metadata type
+    Convert a pandas dataframe to a metadata type suitable for Pinecone.
+
+    Args:
+        df (pd.DataFrame): DataFrame to convert.
+
+    Returns:
+        pd.DataFrame: Converted DataFrame.
     """
     datas = []
     for row in df.itertuples():
         metadata = {'url': row.url, 'n_tokens': row.n_tokens, 'text': row.text}
-        data = {'id': row.url, 'values':row.embeddings, 'metadata': metadata}
+        data = {'id': row.url, 'values': row.embeddings, 'metadata': metadata}
         datas.append(data)
     return pd.DataFrame(datas)
 
-def main(full_url: str, gptkey:str):
+def crawl_deghi() -> pd.DataFrame:
+    """
+    Temporary method for scraping the deghi website.
+
+    Returns:
+        pd.DataFrame: DataFrame containing scraped content.
+    """
+    url = "https://www.deghi.it/supporto"
+
+    response = requests.get(url)
+
+    source_code = response.text
+
+    # Parse the HTML source code using BeautifulSoup
+    soup = BeautifulSoup(source_code, "html.parser")
+
+    # Find all the div elements with the specified class name
+    divs_with_class = soup.find_all("div", class_="card border-no mb-5")
+
+    # Create lists to store the data
+    headers = []
+    bodies = []
+
+    # Process the found div elements and extract header and body content
+    for div in divs_with_class:
+        header = div.find("div", class_="card-header").text.strip()
+        body = div.find("div", class_="card-body").text.strip()
+        body = header + "\n\n" + body
+        # Remove non-ASCII characters from header
+        header = header.encode("ascii", "ignore").decode()
+        headers.append(header)
+        bodies.append(body)
+
+    # Create a Pandas DataFrame
+    return pd.DataFrame({"url": headers, "title": headers, "text": bodies})
+
+def scraper_status(full_url: str) -> str:
+    """
+    Check the status of the scraper for a given URL.
+
+    Args:
+        full_url (str): URL to check the scraper status for.
+
+    Returns:
+        str: Status message.
+    """
+    try:
+        variables_db.PINECONE_INDEX_NAME = pinecone_functions.url_to_index_name(full_url)
+
+        pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
+
+        # Check if there is an index with that name in pinecone
+        if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
+            pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+            result = pinecone_functions.INDEX.fetch(ids=[variables_db.eof_index])
+            if len(result['vectors']) < 1:
+                message = f"Crawling is started but not finished yet for {full_url}"
+            else:
+                message = f"Crawling is finished for {full_url}"
+            
+        else:
+            message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
+    except:
+        message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
+    return message
+
+def main(full_url: str, gptkey: str) -> None:
+    """
+    Main function to start the scraping process.
+
+    Args:
+        full_url (str): URL to scrape.
+        gptkey (str): OpenAI API key.
+    """
     variables_db.OPENAI_API_KEY = gptkey
     full_url, domain = pinecone_functions.get_domain_and_url(full_url)
     
@@ -313,7 +391,7 @@ def main(full_url: str, gptkey:str):
 
     print('Crawling...')
     
-    if full_url=="https://www.deghi.it/supporto/":
+    if full_url == "https://www.deghi.it/supporto/":
         df = crawl_deghi()
     else:
         df = crawl_to_memory(full_url)
@@ -325,10 +403,10 @@ def main(full_url: str, gptkey:str):
     
     df = preprocess(df)
 
-    dimention = len(df.iloc[0]['embeddings'])
+    dimension = len(df.iloc[0]['embeddings'])
 
     print('creating index...')
-    pinecone_functions.create_index(dimention)
+    pinecone_functions.create_index(dimension)
 
     print('index created, retrieving index...')
     sleep(2)
@@ -340,6 +418,7 @@ def main(full_url: str, gptkey:str):
 
     print("Data upsert completed.")
 
+
 ########################################################################################################################################################
 ########################################################################################################################################################
 ########################################################################################################################################################
@@ -349,88 +428,3 @@ if __name__ == "__main__":
     full_url = "https://gethelp.tiledesk.com/"
     #full_url = "https://www.deghi.it/supporto/"
     main(full_url, variables_db.OPENAI_API_KEY)
-    
-
-
-
-
-
-"""
-def crawl(url):
-    # Parse the URL and get the domain
-    local_domain = urlparse(url).netloc
-
-    # Create a queue to store the URLs to crawl
-    queue = deque([url])
-
-    # Create a set to store the URLs that have already been seen (no duplicates)
-    seen = set([url])
-
-    # Create a directory to store the text files
-    if not os.path.exists("text/"):
-            os.mkdir("text/")
-
-    if not os.path.exists("text/"+local_domain+"/"):
-            os.mkdir("text/" + local_domain + "/")
-
-    # Create a directory to store the csv files
-    if not os.path.exists("processed"):
-            os.mkdir("processed")
-
-    # While the queue is not empty, continue crawling
-    while queue:
-        # Get the next URL from the queue
-        url = queue.pop()
-        #if url does not end with /, add it
-        url = url.split()[0]
-        if not url.endswith("/"):
-            url += "/"
-        
-        print(url) # for debugging and to see the progress
-
-        # Save text from the url to a <url>.txt file
-        with open('text/'+local_domain+'/'+url[8:].replace("/", "_") + ".txt", "w") as f:
-
-            # Get the text from the URL using BeautifulSoup
-            soup = BeautifulSoup(requests.get(url).text, "html.parser")
-
-            # Get the text but remove the tags
-            text = soup.get_text()
-
-            # If the crawler gets to a page that requires JavaScript, it will stop the crawl
-            if ("You need to enable JavaScript to run this app." in text):
-                print("Unable to parse page " + url + " due to JavaScript being required")
-            text = f'{url} \n'+ text
-            # Otherwise, write the text to the file in the text directory
-            f.write(text)
-
-        # Get the hyperlinks from the URL and add them to the queue
-        for link in get_domain_hyperlinks(local_domain, url):
-            if link not in seen:
-                queue.append(link)
-                seen.add(link)
-
-                
-def get_hyperlinks(url):
-    
-    # Try to open the URL and read the HTML
-    try:
-        # Open the URL and read the HTML
-        with urllib.request.urlopen(url) as response:
-
-            # If the response is not HTML, return an empty list
-            if not response.info().get('Content-Type').startswith("text/html"):
-                return []
-            
-            # Decode the HTML
-            html = response.read().decode('utf-8')
-    except Exception as e:
-        print(e)
-        return []
-
-    # Create the HTML Parser and then Parse the HTML to get hyperlinks
-    parser = HyperlinkParser()
-    parser.feed(html)
-
-    return parser.hyperlinks
-"""
