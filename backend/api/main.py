@@ -32,6 +32,7 @@ class QA_Inputs(BaseModel):
     question: str
     gptkey :str
     kbid : str
+    chat_history_dict: dict
 
 class Scraper_Inputs(BaseModel):
     full_url: str
@@ -42,10 +43,13 @@ class Status_Inputs(BaseModel):
 
 @app.post("/api/qa")
 def generate_response(inputs: QA_Inputs):
-    answer = qa_run.main(question=inputs.question, openai_api_key=inputs.gptkey, pinecone_index_name=inputs.kbid)
+    answer = qa_run.main(
+        question=inputs.question,
+        openai_api_key=inputs.gptkey,
+        pinecone_index_name=inputs.kbid,
+        chat_history_dict=inputs.chat_history_dict)
 
     return answer
-
     
 # Make the start_scrape endpoint asynchronous
 @app.post("/api/scrape")

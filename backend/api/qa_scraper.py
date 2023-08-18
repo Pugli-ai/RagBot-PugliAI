@@ -281,6 +281,7 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
 
     openai.api_key = variables_db.OPENAI_API_KEY
+    os.environ['OPENAI_API_KEY'] = openai.api_key
 
     df['embeddings'] = df.text.apply(lambda x: openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding'])
     return df
