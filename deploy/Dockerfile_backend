@@ -4,7 +4,6 @@ RUN pip install -r requirements.txt
 WORKDIR /api
 
 COPY ./backend/api /api/api
-COPY ./backend/processed /api/processed
 
 ENV PYTHONPATH=/api
 EXPOSE 8000
