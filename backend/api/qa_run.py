@@ -1,3 +1,4 @@
+import os
 import openai
 from dotenv import load_dotenv
 import traceback
@@ -48,7 +49,59 @@ def create_context(question: str, top_k: int = 3, max_len: int = 1800) -> tuple:
     
     return "\n\n###\n\n".join(texts), source_url
 
-def conversation(context: str, question: str, model: str = "gpt-4", max_tokens: int = 1500) -> str:
+def conversation(context: str, question: str, chat_history: str = "", model: str = "gpt-4", max_tokens: int = 1500) -> str:
+    """
+    Generate a conversation based on the provided context and question.
+
+    Args:
+        context (str): The context for the conversation.
+        question (str): The question to be answered.
+        chat_history (str)
+        model (str, optional): The model to be used for the conversation. Defaults to "gpt-4".
+        max_tokens (int, optional): Maximum tokens for the response. Defaults to 1500.
+
+    Returns:
+        str: The model's response.
+    """
+    
+    template = f"""
+    Answer the question based on the context below. If the answer isn't in the context, refer to the chat history. If the answer can't be found in either, say "I don't know".
+
+    ---
+
+    Context: {context}
+
+    ---
+
+    Chat History:
+    {chat_history}
+
+    ---
+
+    Question: {question}
+    Answer:
+    """
+
+    response = openai.ChatCompletion.create(
+        messages=[
+            {
+            "role": "user",
+            "content": template
+            }
+        ],
+        #prompt=template,
+        temperature=0,
+        max_tokens=max_tokens,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0,
+        stop=None,
+        model=model,
+    )
+
+    return response['choices'][0]['message']['content']
+
+def conversation_with_langchain(context: str, question: str, chat_history: str = "", model: str = "gpt-4", max_tokens: int = 1500) -> str:
     """
     Generate a conversation based on the provided context and question.
 
@@ -62,14 +115,29 @@ def conversation(context: str, question: str, model: str = "gpt-4", max_tokens: 
         str: The model's response.
     """
     # Define the template for the conversation.
-    template = """Answer the question based on the context below, and if the question can't be answered based on the context, say "I don't know"
-    \n\nContext: {context}\n\n---\n\nQuestion: {question}\nAnswer:"""
+    template = """
+    Answer the question based on the context below. If the answer isn't in the context, refer to the chat history. If the answer can't be found in either, say "I don't know".
+
+    ---
+
+    Context: {context}
+
+    ---
+
+    Chat History:
+    {chat_history}
+
+    ---
+
+    Question: {question}
+    Answer:
+    """
     
-    prompt = PromptTemplate(input_variables=["context", "question"], template=template)
+    prompt = PromptTemplate(input_variables=["context", "chat_history", "question"], template=template)
     LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model)
     chatgpt_chain = LLMChain(llm=LLM, prompt=prompt, verbose=False)
     
-    return chatgpt_chain.predict(context=context, question=question)
+    return chatgpt_chain.predict(context=context, chat_history=chat_history, question=question)
 
 def handle_exception(e: Exception) -> dict:
     """
@@ -86,7 +154,7 @@ def handle_exception(e: Exception) -> dict:
     
     return {"answer": "Error!", "source_url": None, "success": False, "error_message": error_message[-1]}
 
-def answer_question(question: str, model: str = "text-davinci-003", max_tokens: int = 1500) -> dict:
+def answer_question(question: str, chat_history: str = "") -> dict:
     """
     Answer a question based on the most similar context.
 
@@ -100,7 +168,7 @@ def answer_question(question: str, model: str = "text-davinci-003", max_tokens: 
     """
     context, source_url = create_context(question)
     try:
-        answer = conversation(context, question)
+        answer = conversation_with_langchain(context, question, chat_history = chat_history)
         if answer.strip() in DUNNO_LIST:
             source_url = None
             success = False
@@ -110,7 +178,7 @@ def answer_question(question: str, model: str = "text-davinci-003", max_tokens: 
     except Exception as e:
         return handle_exception(e)
 
-def main(question: str, openai_api_key: str, pinecone_index_name: str) -> dict:
+def main(question: str, openai_api_key: str, pinecone_index_name: str, chat_history_dict:dict = dict()) -> dict:
     """
     Main function to answer a question based on the most relevant context from a database.
 
@@ -128,6 +196,7 @@ def main(question: str, openai_api_key: str, pinecone_index_name: str) -> dict:
             print('Changing OPENAI_API_KEY')
             variables_db.OPENAI_API_KEY = openai_api_key
             openai.api_key = variables_db.OPENAI_API_KEY
+            os.environ['OPENAI_API_KEY'] = openai.api_key
         
         # Convert the URL to a Pinecone index name.
         pinecone_index_name = pinecone_functions.url_to_index_name(pinecone_index_name)
@@ -141,10 +210,27 @@ def main(question: str, openai_api_key: str, pinecone_index_name: str) -> dict:
             print('Changing PINECONE_INDEX')
             variables_db.PINECONE_INDEX_NAME = pinecone_index_name
             pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-        
-        return answer_question(question=question)
+        chat_history = create_chat_history_string(chat_history_dict)
+        return answer_question(question=question, chat_history = chat_history)
     except Exception as e:
         return handle_exception(e)
+
+def create_chat_history_string(chat_history_dict: dict = dict()) -> str:
+    """_summary_
+
+    Args:
+        chat_history_dict (dict, optional): _description_. Defaults to dict().
+
+    Returns:
+        str: _description_
+    """
+    chat_history= ""
+    for key, value in chat_history_dict.items():
+        question = value['question']
+        answer = value['answer']
+        chat_history+=f"\nquestion_{key}: {question}\nanswer_{key}: {answer}\n"
+
+    return chat_history
 
 def init() -> None:
     """
@@ -153,6 +239,8 @@ def init() -> None:
     pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
     load_dotenv()
     openai.api_key = variables_db.OPENAI_API_KEY
+    os.environ['OPENAI_API_KEY'] = openai.api_key
+    
 
 init()
 
