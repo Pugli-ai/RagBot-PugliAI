@@ -339,7 +339,7 @@ def crawl_deghi() -> pd.DataFrame:
     # Create a Pandas DataFrame
     return pd.DataFrame({"url": headers, "title": headers, "text": bodies})
 
-def scraper_status(full_url: str) -> str:
+def scraper_status(full_url: str) -> dict:
     """
     Check the status of the scraper for a given URL.
 
@@ -347,8 +347,9 @@ def scraper_status(full_url: str) -> str:
         full_url (str): URL to check the scraper status for.
 
     Returns:
-        str: Status message.
+        dict: Status message and code. 0-> not started, 1-> started, 2-> finished
     """
+    
     try:
         variables_db.PINECONE_INDEX_NAME = pinecone_functions.url_to_index_name(full_url)
 
@@ -360,14 +361,19 @@ def scraper_status(full_url: str) -> str:
             result = pinecone_functions.INDEX.fetch(ids=[variables_db.eof_index])
             if len(result['vectors']) < 1:
                 message = f"Crawling is started but not finished yet for {full_url}"
+                status_code = 1
             else:
+                status_code = 2
                 message = f"Crawling is finished for {full_url}"
             
         else:
+            status_code = 0
             message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
     except:
+        status_code = 0
         message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
-    return message
+    
+    return {"status_message" : message, "status_code": status_code}
 
 def main(full_url: str, gptkey: str) -> None:
     """
