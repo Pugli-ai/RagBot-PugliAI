@@ -7,5 +7,6 @@ services:
 
   backend:
     image: tiledeskacr.azurecr.io/tiledesk-backend
+    restart: always
     ports: 
       - 8000:8000
