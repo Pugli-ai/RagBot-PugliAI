@@ -64,7 +64,7 @@ async def start_scrape(inputs: Scraper_Inputs, background_tasks: BackgroundTasks
 def generate_response(inputs: Status_Inputs):
     status = qa_scraper.scraper_status(inputs.full_url)
 
-    return {"status": status}
+    return status
 
 @app.exception_handler(Exception)
 async def custom_exception_handler(request: Request, exc: Exception):
