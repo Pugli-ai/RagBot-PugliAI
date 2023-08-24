@@ -25,6 +25,11 @@ jobs:
             password: ${{ secrets.REGISTRY_PASSWORD }}
         - run: |
             docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/tiledesk-backend -f ./deploy/Dockerfile_backend .
-            docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/tiledesk-frontend -f ./deploy/Dockerfile_frontend .
             docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/tiledesk-backend
-            docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/tiledesk-frontend
+        
+        - name: Azure CLI script
+          uses: azure/CLI@v1
+          with:
+            azcliversion: 2.30.0
+            inlineScript: |
+              az container restart --name tiledesk-backend  --resource-group tiledesk
