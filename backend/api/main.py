@@ -26,7 +26,7 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Ciao Mondo"}
 
 class QA_Inputs(BaseModel):
     question: str
