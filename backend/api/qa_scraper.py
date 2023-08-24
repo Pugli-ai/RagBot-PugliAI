@@ -375,6 +375,23 @@ def scraper_status(full_url: str) -> dict:
     
     return {"status_message" : message, "status_code": status_code}
 
+def delete_index(full_url: str) -> None:
+    """delete pinecone index if exists
+
+    Args:
+        full_url (str): _description_
+    """
+    variables_db.PINECONE_INDEX_NAME = pinecone_functions.url_to_index_name(full_url)
+
+    pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
+
+    # Check if there is an index with that name in pinecone
+    if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
+        pinecone.delete_index(variables_db.PINECONE_INDEX_NAME)
+        return {"success": True, "message": f"{full_url} is deleted from database"}
+    else:
+        return {"success": False, "message": f"{full_url} is not in database"}
+
 def main(full_url: str, gptkey: str) -> None:
     """
     Main function to start the scraping process.

@@ -42,7 +42,7 @@ class Status_Inputs(BaseModel):
     full_url: str
 
 @app.post("/api/qa")
-def generate_response(inputs: QA_Inputs):
+def qa_run_api(inputs: QA_Inputs):
     answer = qa_run.main(
         question=inputs.question,
         openai_api_key=inputs.gptkey,
@@ -51,18 +51,26 @@ def generate_response(inputs: QA_Inputs):
 
     return answer
     
-# Make the start_scrape endpoint asynchronous
+# start_scrape api for scraping the url and saving the result into pinecone database
 @app.post("/api/scrape")
-async def start_scrape(inputs: Scraper_Inputs, background_tasks: BackgroundTasks):
+async def scraper_api(inputs: Scraper_Inputs, background_tasks: BackgroundTasks):
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
         return {"message": "Invalid Openai API key"}
     # Run qa_scraper.main in the background using BackgroundTasks
     background_tasks.add_task(qa_scraper.main, inputs.full_url, inputs.gptkey)
-    return {"message": "Scrape started! Check logs for progress."}
+    return {"message": "Scrape started! Check scraping status api for progress."}
 
+# generate_response api for checking the status of scraping process
 @app.post("/api/scrape/status")
-def generate_response(inputs: Status_Inputs):
+def scraper_status_api(inputs: Status_Inputs):
     status = qa_scraper.scraper_status(inputs.full_url)
+
+    return status
+
+# The api for deleting the index from pinecone database
+@app.post("/api/scrape/delete")
+def delete_index_api(inputs: Status_Inputs):
+    status = qa_scraper.delete_index(inputs.full_url)
 
     return status
 
