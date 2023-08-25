@@ -299,7 +299,7 @@ def convertdf2_pineconetype(df: pd.DataFrame) -> pd.DataFrame:
     datas = []
     for row in df.itertuples():
         metadata = {'url': row.url, 'n_tokens': row.n_tokens, 'text': row.text}
-        data = {'id': row.url, 'values': row.embeddings, 'metadata': metadata}
+        data = {'id': row.url.encode("ascii", "ignore").decode(), 'values': row.embeddings, 'metadata': metadata}
         datas.append(data)
     return pd.DataFrame(datas)
 
