@@ -32,7 +32,7 @@ class QA_Inputs(BaseModel):
     question: str
     gptkey :str
     kbid : str
-    chat_history_dict: dict
+    chat_history_dict: dict = {}
 
 class Scraper_Inputs(BaseModel):
     full_url: str
