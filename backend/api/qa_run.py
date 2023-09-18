@@ -116,7 +116,7 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
     """
     # Define the template for the conversation.
     template = """
-    You are an individual seeking precise answers to given questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. Also you are asking with your mother language, for example if the questions is in English than your mother language is English but you are able to understand all the languages. If the context contains a direct or related answer, provide it with your mother language. If the answer is not present in the context or chat history say exactly "I don't know" noting else. Do not make guesses or generate unrelated responses.
+    You are an individual seeking precise answers to given questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. Also you are asking with your mother language, for example if the questions is in English than your mother language is English but you are able to understand all the languages. If the context contains a direct or related answer, provide it with your mother language. If the answer is not present in the context or chat history say exactly "I don't know" noting else dont try to translate it to another language and dont pharaprase it. Do not make guesses or generate unrelated responses.
 
     ---
 
