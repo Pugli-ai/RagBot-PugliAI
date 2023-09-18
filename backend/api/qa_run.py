@@ -116,7 +116,7 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
     """
     # Define the template for the conversation.
     template = """
-    Answer the question based on the context below. If the answer isn't in the context, refer to the chat history. If the answer can't be found in either, say "I don't know".
+    You are an individual seeking precise answers to given questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. Also you are asking with your mother language, for example if the questions is in English than your mother language is English but you are able to understand all the languages. If the context contains a direct or related answer, provide it with your mother language. If the answer is not present in the context or chat history say exactly "I don't know" noting else. Do not make guesses or generate unrelated responses.
 
     ---
 
@@ -167,6 +167,8 @@ def answer_question(question: str, chat_history: str = "") -> dict:
         dict: A dictionary containing the answer, source URL, success status, and error message (if any).
     """
     context, source_url = create_context(question)
+    if source_url == variables_db.eof_index:
+        return {"answer": DUNNO_LIST[0], "source_url": None, "success": False, "error_message": None}
     try:
         answer = conversation_with_langchain(context, question, chat_history = chat_history)
         if answer.strip() in DUNNO_LIST:
@@ -281,3 +283,67 @@ if __name__ == "__main__":
         question = "How to create an index?"
         answer = main(question, variables_db.OPENAI_API_KEY, full_url)
         print(f"Question: {question}\nAnswer: {answer}")
+
+
+'''
+Prompts,
+template = """
+You are an individual seeking precise answers to your questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. If the context contains a direct answer, provide it. If the context contains a related but not exact answer, indicate that. If the answer is not present in the context or chat history, simply state "I don't know". Do not make guesses or generate unrelated responses. Respond in the same language as the question asked.
+
+---
+
+Context: {context}
+
+---
+
+Chat History:
+{chat_history}
+
+---
+
+Question: {question}
+Answer:
+"""
+
+
+
+
+
+template = """
+Answer the question based on the context below. If the answer isn't in the context, refer to the chat history. If the answer can't be found in either, say "I don't know".
+
+---
+
+Context: {context}
+
+---
+
+Chat History:
+{chat_history}
+
+---
+
+Question: {question}
+Answer:
+"""
+
+
+
+    template = """
+    You are an individual seeking precise answers to your questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. Also you are asking with your mother language, for example if the questions is in English than your mother language is English but you are able to understand all the languages. If the context contains a direct or related answer, provide it with your mother language. If the answer is not present in the context or chat history, say exactly "I don't know" noting else. Do not make guesses or generate unrelated responses.
+
+    ---
+
+    Context: {context}
+
+    ---
+
+    Chat History:
+    {chat_history}
+
+    ---
+
+    Question: {question}
+    Answer:
+    """
+'''

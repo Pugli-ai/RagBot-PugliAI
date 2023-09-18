@@ -12,6 +12,7 @@ import numpy as np
 from openai.embeddings_utils import distances_from_embeddings, cosine_similarity
 import openai
 from time import sleep
+import time
 import traceback
 import json
 from datetime import datetime
@@ -400,6 +401,7 @@ def main(full_url: str, gptkey: str) -> None:
         full_url (str): URL to scrape.
         gptkey (str): OpenAI API key.
     """
+    timer_start = time.time()
     variables_db.OPENAI_API_KEY = gptkey
     full_url, domain = pinecone_functions.get_domain_and_url(full_url)
     
@@ -413,8 +415,11 @@ def main(full_url: str, gptkey: str) -> None:
         pinecone_functions.INDEX = pinecone_functions.retrieve_index()
         pinecone_functions.INDEX.delete(ids=[variables_db.eof_index])
 
+    timer_end = time.time()
+    print(f"Time to initialize pinecone: {format_time(timer_end - timer_start)}")
+
     print('Crawling...')
-    
+    timer_start = time.time()
     if full_url == "https://www.deghi.it/supporto/":
         df = crawl_deghi()
     else:
@@ -422,14 +427,19 @@ def main(full_url: str, gptkey: str) -> None:
 
     eof_row = {'url': variables_db.eof_index, 'title': variables_db.eof_index, 'text': variables_db.eof_index}
     df = pd.concat([df, pd.DataFrame([eof_row])], ignore_index=True)
-
-    print('Crawling completed.')
     
+    print('Crawling completed.')
+    timer_end = time.time()
+    print(f"Time to crawl: {format_time(timer_end - timer_start)}")
+    timer_start = time.time()
     df = preprocess(df)
 
     dimension = len(df.iloc[0]['embeddings'])
+    timer_end = time.time()
+    print(f"Time to preprocess: {format_time(timer_end - timer_start)}")
 
     print('creating index...')
+    timer_start = time.time()
     pinecone_functions.create_index(dimension)
 
     print('index created, retrieving index...')
@@ -441,7 +451,26 @@ def main(full_url: str, gptkey: str) -> None:
     pinecone_functions.INDEX.upsert_from_dataframe(df, batch_size=2)
 
     print("Data upsert completed.")
+    timer_end = time.time()
+    print(f"Time to upload data to pinecone: {format_time(timer_end - timer_start)}")
+def format_time(seconds):
+    minutes, seconds = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
 
+    time_str = ""
+    if days > 0:
+        time_str += f"{days}d "
+    if hours > 0:
+        time_str += f"{hours}h "
+    if minutes > 0:
+        time_str += f"{minutes}min "
+    if seconds > 0:
+        time_str += f"{seconds}sec"
+    else:
+        time_str += "0sec"
+
+    return time_str
 
 ########################################################################################################################################################
 ########################################################################################################################################################
@@ -449,6 +478,6 @@ def main(full_url: str, gptkey: str) -> None:
 
 if __name__ == "__main__":
     # Define root domain to crawl
-    full_url = "https://gethelp.tiledesk.com/"
-    #full_url = "https://www.deghi.it/supporto/"
+    #full_url = "https://gethelp.tiledesk.com/"
+    full_url = "https://www.deghi.it/supporto/"
     main(full_url, variables_db.OPENAI_API_KEY)
