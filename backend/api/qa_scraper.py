@@ -337,6 +337,28 @@ def crawl_deghi() -> pd.DataFrame:
         headers.append(header)
         bodies.append(body)
 
+    ### Begining of Temporary section
+    temp_list = ["https://www.deghi.it/ombrellone-da-giardino-3x3-m-palo-laterale-telo-ecr-tenerife",
+                 "https://www.deghi.it/gazebo-3x36-in-alluminio-e-policarbonato-grigio-sawara",
+                 "https://www.deghi.it/ombrellone-da-giardino-3x2-m-palo-centrale-telo-tortora-robin",
+                 "https://www.deghi.it/poltrona-da-giardino-in-textilene-e-acciaio-marrone-pados",
+                 "https://www.deghi.it/lettino-imbottito-reclinabile-in-alluminio-antracite-azimut",
+                 "https://www.deghi.it/set-2-sedie-pieghevoli-da-giardino-in-legno-di-teak-louis",
+                 "https://www.deghi.it/tavolo-allungabile-da-giardino-160-240-cm-in-alluminio-tortora-carioca",
+                 "https://www.deghi.it/tavolo-ovale-allungabile-150-200-cm-in-legno-di-acacia-paja",
+                 "https://www.deghi.it/tavolino-da-giardino-70x50-cm-in-acciaio-marrone-pados",
+                 "https://www.deghi.it/set-relax-5-pezzi-per-composizione-libera-divano-chaise-longue-grigio-con-tavolino"]
+    
+
+    for url in temp_list:
+        soup = BeautifulSoup(requests.get(url).text, "html.parser")
+        temp_url_content = soup.get_text()
+        temp_url_content = url + "\n\n" + temp_url_content
+        headers.append(url)
+        bodies.append(temp_url_content)
+
+
+    ### End of temporary section
     # Create a Pandas DataFrame
     return pd.DataFrame({"url": headers, "title": headers, "text": bodies})
 

@@ -12,6 +12,7 @@ try:
 except ImportError:
     import variables_db
     import pinecone_functions
+import json
 
 # List of possible "I don't know" responses.
 DUNNO_LIST = [
@@ -101,6 +102,37 @@ def conversation(context: str, question: str, chat_history: str = "", model: str
 
     return response['choices'][0]['message']['content']
 
+def convert_question_to_english(question:str):
+
+    prompt = f"""
+                Convert below text to English, if it is already in English, return the same text. But provide it in a json format like below. The response should be json format otherwise it will not work.
+                {{
+                    "original_text": {question},
+                    "translated_text": "text", 
+                    "original_language": "language"
+                }}
+            """
+    
+
+    response = openai.ChatCompletion.create(
+        messages=[
+            {
+            "role": "user",
+            "content": prompt
+            }
+        ],
+        #prompt=template,
+        temperature=0,
+        max_tokens=1500,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0,
+        stop=None,
+        model="gpt-4",
+    )
+
+    return json.loads(response['choices'][0]['message']['content'])
+
 def conversation_with_langchain(context: str, question: str, chat_history: str = "", model: str = "gpt-4", max_tokens: int = 1500) -> str:
     """
     Generate a conversation based on the provided context and question.
@@ -115,8 +147,12 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
         str: The model's response.
     """
     # Define the template for the conversation.
+    #translation = convert_question_to_english(question)
+    #question = translation['translated_text']
+    #print("question : ", question)
+    #language = translation['original_language']
     template = """
-    You are an individual seeking precise answers to given questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. Also you are asking with your mother language, for example if the questions is in English than your mother language is English but you are able to understand all the languages. If the context contains a direct or related answer, provide it with your mother language. If the answer is not present in the context or chat history say exactly "I don't know" noting else dont try to translate it to another language and dont pharaprase it. Do not make guesses or generate unrelated responses.
+    You are an individual seeking precise answers to given questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. If the context contains a direct or related answer, provide it with question's language. If the answer is not present in the context or chat history say "I don't know" without breaking json format. The answer should be always in json format otherwise it won't work.
 
     ---
 
@@ -131,13 +167,26 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
 
     Question: {question}
     Answer:
+
+    {{
+        "Answer": {{
+            "English": "English answer" or "I don't know",
+            "Italian": "Italian answer" or "I don't know",
+        }}
+    }}
     """
     
     prompt = PromptTemplate(input_variables=["context", "chat_history", "question"], template=template)
     LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model)
     chatgpt_chain = LLMChain(llm=LLM, prompt=prompt, verbose=False)
-    
-    return chatgpt_chain.predict(context=context, chat_history=chat_history, question=question)
+    answer = chatgpt_chain.predict(context=context, chat_history=chat_history, question=question)
+    """
+    print("------------------")
+    print("answer : ", answer)
+    print("------------------")
+    """
+    answer_json = json.loads(answer)
+    return answer_json
 
 def handle_exception(e: Exception) -> dict:
     """
@@ -166,11 +215,21 @@ def answer_question(question: str, chat_history: str = "") -> dict:
     Returns:
         dict: A dictionary containing the answer, source URL, success status, and error message (if any).
     """
+    translation = convert_question_to_english(question)
+    question = translation['translated_text']
+    #print("question : ", question)
+    language = translation['original_language']
+    #print("language: ", language)
     context, source_url = create_context(question)
+    #print("source url : ", source_url)
+    #print("content : ", context)
     if source_url == variables_db.eof_index:
+
         return {"answer": DUNNO_LIST[0], "source_url": None, "success": False, "error_message": None}
     try:
-        answer = conversation_with_langchain(context, question, chat_history = chat_history)
+        answer_json = conversation_with_langchain(context, question, chat_history = chat_history)
+        answer = answer_json['Answer'][language]
+        #print("Answer: ", answer)
         if answer.strip() in DUNNO_LIST:
             source_url = None
             success = False
