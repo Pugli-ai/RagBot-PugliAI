@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from api import pinecone_functions
+
 class ErrorResponse(BaseModel):
     detail: str
 
@@ -53,12 +54,18 @@ def qa_run_api(inputs: QA_Inputs):
     
 # start_scrape api for scraping the url and saving the result into pinecone database
 @app.post("/api/scrape")
-async def scraper_api(inputs: Scraper_Inputs, background_tasks: BackgroundTasks):
+async def scraper_api(inputs: Scraper_Inputs, background_tasks: BackgroundTasks):# Declare the variable as global so we can modify it
+
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
         return {"message": "Invalid Openai API key"}
-    # Run qa_scraper.main in the background using BackgroundTasks
-    background_tasks.add_task(qa_scraper.main, inputs.full_url, inputs.gptkey)
-    return {"message": "Scrape started! Check scraping status api for progress."}
+
+    # Try to acquire the lock
+    if qa_scraper.is_running:
+        return {"message": f"Scraper is already running for {qa_scraper.current_url} website, please wait for it to finish."}
+    else:
+
+        background_tasks.add_task(qa_scraper.main, inputs.full_url, inputs.gptkey)
+        return {"message": "Scrape started! Check scraping status API for progress."}
 
 # generate_response api for checking the status of scraping process
 @app.post("/api/scrape/status")

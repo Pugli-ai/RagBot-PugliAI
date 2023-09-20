@@ -26,6 +26,9 @@ except ImportError:
     import pinecone_functions
 import pinecone
 
+is_running = False
+current_url = None
+
 # Regex pattern to match a URL
 HTTP_URL_PATTERN = r'^http[s]*://.+'
 
@@ -283,8 +286,9 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
 
     openai.api_key = variables_db.OPENAI_API_KEY
     os.environ['OPENAI_API_KEY'] = openai.api_key
-
+    print("embedding started")
     df['embeddings'] = df.text.apply(lambda x: openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding'])
+    print("embedding ended")
     return df
 
 def convertdf2_pineconetype(df: pd.DataFrame) -> pd.DataFrame:
@@ -423,54 +427,62 @@ def main(full_url: str, gptkey: str) -> None:
         full_url (str): URL to scrape.
         gptkey (str): OpenAI API key.
     """
-    timer_start = time.time()
-    variables_db.OPENAI_API_KEY = gptkey
-    full_url, domain = pinecone_functions.get_domain_and_url(full_url)
-    
-    pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
-    index_name = pinecone_functions.url_to_index_name(full_url)
-    print('index name: ', index_name)
-    variables_db.PINECONE_INDEX_NAME = index_name
+    global is_running, current_url
+    try:
+        is_running = True
+        current_url = full_url
+        timer_start = time.time()
+        variables_db.OPENAI_API_KEY = gptkey
+        full_url, domain = pinecone_functions.get_domain_and_url(full_url)
+        
+        pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
+        index_name = pinecone_functions.url_to_index_name(full_url)
+        print('index name: ', index_name)
+        variables_db.PINECONE_INDEX_NAME = index_name
 
-    if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
-        print("deleting the eof row")
+        if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
+            print("deleting the eof row")
+            pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+            pinecone_functions.INDEX.delete(ids=[variables_db.eof_index])
+
+        timer_end = time.time()
+        print(f"Time to initialize pinecone: {format_time(timer_end - timer_start)}")
+
+        print('Crawling...')
+        timer_start = time.time()
+        if full_url == "https://www.deghi.it/supporto/":
+            df = crawl_deghi()
+        else:
+            df = crawl_to_memory(full_url)
+
+        eof_row = {'url': variables_db.eof_index, 'title': variables_db.eof_index, 'text': variables_db.eof_index}
+        df = pd.concat([df, pd.DataFrame([eof_row])], ignore_index=True)
+        
+        print('Crawling completed.')
+        timer_end = time.time()
+        print(f"Time to crawl: {format_time(timer_end - timer_start)}")
+        timer_start = time.time()
+        df = preprocess(df)
+
+        dimension = len(df.iloc[0]['embeddings'])
+        timer_end = time.time()
+        print(f"Time to preprocess: {format_time(timer_end - timer_start)}")
+
+        print('creating index...')
+        timer_start = time.time()
+        pinecone_functions.create_index(dimension)
+
+        print('index created, retrieving index...')
+        sleep(2)
         pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-        pinecone_functions.INDEX.delete(ids=[variables_db.eof_index])
 
-    timer_end = time.time()
-    print(f"Time to initialize pinecone: {format_time(timer_end - timer_start)}")
-
-    print('Crawling...')
-    timer_start = time.time()
-    if full_url == "https://www.deghi.it/supporto/":
-        df = crawl_deghi()
-    else:
-        df = crawl_to_memory(full_url)
-
-    eof_row = {'url': variables_db.eof_index, 'title': variables_db.eof_index, 'text': variables_db.eof_index}
-    df = pd.concat([df, pd.DataFrame([eof_row])], ignore_index=True)
-    
-    print('Crawling completed.')
-    timer_end = time.time()
-    print(f"Time to crawl: {format_time(timer_end - timer_start)}")
-    timer_start = time.time()
-    df = preprocess(df)
-
-    dimension = len(df.iloc[0]['embeddings'])
-    timer_end = time.time()
-    print(f"Time to preprocess: {format_time(timer_end - timer_start)}")
-
-    print('creating index...')
-    timer_start = time.time()
-    pinecone_functions.create_index(dimension)
-
-    print('index created, retrieving index...')
-    sleep(2)
-    pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-
-    print('Uploading data to Pinecone...')
-    df = convertdf2_pineconetype(df)
-    pinecone_functions.INDEX.upsert_from_dataframe(df, batch_size=2)
+        print('Uploading data to Pinecone...')
+        df = convertdf2_pineconetype(df)
+        pinecone_functions.INDEX.upsert_from_dataframe(df, batch_size=2)
+        is_running = False
+    except:
+        is_running = False
+        traceback.print_exc()
 
     print("Data upsert completed.")
     timer_end = time.time()
