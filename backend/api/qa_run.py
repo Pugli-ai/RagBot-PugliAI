@@ -224,8 +224,8 @@ def answer_question(question: str, chat_history: str = "") -> dict:
     #print("source url : ", source_url)
     #print("content : ", context)
     if source_url == variables_db.eof_index:
-
-        return {"answer": DUNNO_LIST[0], "source_url": None, "success": False, "error_message": None}
+        source_url= None
+        
     try:
         answer_json = conversation_with_langchain(context, question, chat_history = chat_history)
         answer = answer_json['Answer'][language]
