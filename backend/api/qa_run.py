@@ -13,6 +13,7 @@ except ImportError:
     import variables_db
     import pinecone_functions
 import json
+from datetime import datetime
 
 # List of possible "I don't know" responses.
 DUNNO_LIST = [
@@ -236,6 +237,11 @@ def main(question: str, openai_api_key: str, pinecone_index_name: str, chat_hist
         dict: A dictionary containing the answer, source URL, success status, and error message (if any).
     """
     try:
+        #print datetime with date
+        datetime_now =datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        print(f'{datetime_now} // Question: {question}')
+        
+        
         # Check and update the OpenAI API key if necessary.
         if variables_db.OPENAI_API_KEY != openai_api_key:
             print('Changing OPENAI_API_KEY')
@@ -256,7 +262,9 @@ def main(question: str, openai_api_key: str, pinecone_index_name: str, chat_hist
             variables_db.PINECONE_INDEX_NAME = pinecone_index_name
             pinecone_functions.INDEX = pinecone_functions.retrieve_index()
         chat_history = create_chat_history_string(chat_history_dict)
-        return answer_question(question=question, chat_history = chat_history)
+        answer = answer_question(question=question, chat_history = chat_history)
+        print(f'{datetime_now} // Answer: {answer}')
+        return answer
     except Exception as e:
         return handle_exception(e)
 
