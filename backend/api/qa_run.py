@@ -20,7 +20,7 @@ DUNNO_LIST = [
     "I don't know.", "I don’t know.", "I do not know.", "I don’t know."
 ]
 
-def create_context(question: str, top_k: int = 3, max_len: int = 1800) -> tuple:
+def create_context(question: str, top_k: int = 5, max_len: int = 1800) -> tuple:
     """
     Create a context for the given question using embeddings.
 
@@ -152,7 +152,7 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
     #print("question : ", question)
     #language = translation['original_language']
     template = """
-    You are an individual seeking precise answers to given questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. If the context contains a direct or related answer, provide it with question's language. If the answer is not present in the context or chat history say "I don't know" without breaking json format. The answer should be always in json format otherwise it won't work.
+    You are a chatbot seeking precise answers to given questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. If the context contains a direct or related answer, provide it with question's language. If the answer is not present in the context or chat history say "I don't know". "I don't know" is the key message to machine to understand there is no answer for that question. But always make a respond to greetings messages.
 
     ---
 
@@ -167,26 +167,14 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
 
     Question: {question}
     Answer:
-
-    {{
-        "Answer": {{
-            "English": "English answer" or "I don't know",
-            "Italian": "Italian answer" or "I don't know",
-        }}
-    }}
     """
     
     prompt = PromptTemplate(input_variables=["context", "chat_history", "question"], template=template)
     LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model)
     chatgpt_chain = LLMChain(llm=LLM, prompt=prompt, verbose=False)
     answer = chatgpt_chain.predict(context=context, chat_history=chat_history, question=question)
-    """
-    print("------------------")
-    print("answer : ", answer)
-    print("------------------")
-    """
-    answer_json = json.loads(answer)
-    return answer_json
+
+    return answer
 
 def handle_exception(e: Exception) -> dict:
     """
@@ -215,20 +203,16 @@ def answer_question(question: str, chat_history: str = "") -> dict:
     Returns:
         dict: A dictionary containing the answer, source URL, success status, and error message (if any).
     """
-    translation = convert_question_to_english(question)
-    question = translation['translated_text']
-    #print("question : ", question)
-    language = translation['original_language']
-    #print("language: ", language)
+
     context, source_url = create_context(question)
     #print("source url : ", source_url)
     #print("content : ", context)
     if source_url == variables_db.eof_index:
         source_url= None
-        
+
     try:
-        answer_json = conversation_with_langchain(context, question, chat_history = chat_history)
-        answer = answer_json['Answer'][language]
+        answer = conversation_with_langchain(context, question, chat_history = chat_history)
+
         #print("Answer: ", answer)
         if answer.strip() in DUNNO_LIST:
             source_url = None
@@ -307,8 +291,8 @@ init()
 
 if __name__ == "__main__":
 
-    #full_url = "https://www.deghi.it/supporto/"
-    full_url= "https://gethelp.tiledesk.com/"
+    full_url = "https://www.deghi.it/supporto/"
+    #full_url= "https://gethelp.tiledesk.com/"
     #full_url = "https://docs.pinecone.io/"
 
     if full_url == "https://gethelp.tiledesk.com/":
@@ -330,9 +314,18 @@ if __name__ == "__main__":
         print(f"Question: {question}\nAnswer: {answer}")
 
     elif full_url == "https://www.deghi.it/supporto/":
-        question = "Tutti gli articoli su Deghi sono disponibili?"
+        
+        question = "Quanto ci mette in genere un pacco ad arrivare?"
         answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-        print(f"Question: {question}\nAnswer: {answer}")
+        print("###############################################")
+        print(f"\n\nQuestion: {question}\nAnswer: {answer}\n\n")
+        print("###############################################")
+
+        question = "How long does a package usually take to arrive?"
+        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        print("###############################################")
+        print(f"\n\nQuestion: {question}\nAnswer: {answer}\n\n")
+        print("###############################################")
 
     elif full_url == "https://docs.pinecone.io/":
         question = "What is pinecone?"
