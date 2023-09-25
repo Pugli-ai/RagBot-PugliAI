@@ -335,7 +335,7 @@ def crawl_deghi() -> pd.DataFrame:
     for div in divs_with_class:
         header = div.find("div", class_="card-header").text.strip()
         body = div.find("div", class_="card-body").text.strip()
-        body = header + "\n\n" + body
+        body = "source url: "+ header + "\n" + body
         # Remove non-ASCII characters from header
         header = header.encode("ascii", "ignore").decode()
         headers.append(header)
