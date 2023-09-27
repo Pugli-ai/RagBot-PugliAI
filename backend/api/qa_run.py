@@ -15,13 +15,10 @@ except ImportError:
 import json
 from datetime import datetime
 
-# List of possible "I don't know" responses.
-DUNNO_LIST = [
-    "I don't know", "I don’t know", "I do not know", "I don’t know",
-    "I don't know.", "I don’t know.", "I do not know.", "I don’t know."
-]
+########################################################### CHILD FUNCTIONS ###########################################################
+#######################################################################################################################################
 
-def create_context(question: str, top_k: int = 5, max_len: int = 1800) -> tuple:
+def create_context(question: str, pinecone_namespace: str, top_k: int = 5, max_len: int = 1800) -> tuple:
     """
     Create a context for the given question using embeddings.
 
@@ -37,7 +34,11 @@ def create_context(question: str, top_k: int = 5, max_len: int = 1800) -> tuple:
     q_embeddings = openai.Embedding.create(input=question, engine='text-embedding-ada-002')['data'][0]['embedding']
     
     # Query the pinecone index to get the most relevant matches.
-    results = pinecone_functions.INDEX.query(vector=q_embeddings, top_k=top_k, include_metadata=True)
+    results = pinecone_functions.INDEX.query(
+        namespace = pinecone_namespace,
+        vector=q_embeddings,
+        top_k=top_k,
+        include_metadata=True)
     
     texts = []
     cur_len = 0
@@ -47,9 +48,9 @@ def create_context(question: str, top_k: int = 5, max_len: int = 1800) -> tuple:
             break
         texts.append(result['metadata']['text'])
     
-    source_url = results['matches'][0]['metadata']['url']
+    #source_url = results['matches'][0]['metadata']['url']
     
-    return "\n\n###\n\n".join(texts), source_url
+    return "\n\n###\n\n".join(texts)
 
 def conversation(context: str, question: str, chat_history: str = "", model: str = "gpt-4", max_tokens: int = 1500) -> str:
     """
@@ -157,7 +158,7 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
     These are the rules;
     * Always make a respond to greetings messages you can say like "hi how can i help you?".
     * Translate your answer to the question's language.
-    * Your answer should be in json format as below to machine to understand.
+    * Format your response as a JSON object. This is too important otherwise it will not work. The root key should be "Response".
     * If the answer in the context provide its source url. You will find it in the context. Otherwise make source url None.
     ---
 
@@ -204,7 +205,7 @@ def handle_exception(e: Exception) -> dict:
     
     return {"answer": "Error!", "source_url": None, "success": False, "error_message": error_message[-1]}
 
-def answer_question(question: str, chat_history: str = "") -> dict:
+def answer_question(question: str, pinecone_namespace: str, chat_history: str = "") -> dict:
     """
     Answer a question based on the most similar context.
 
@@ -217,9 +218,11 @@ def answer_question(question: str, chat_history: str = "") -> dict:
         dict: A dictionary containing the answer, source URL, success status, and error message (if any).
     """
 
-    context, source_url_old = create_context(question)
+    context = create_context(question, pinecone_namespace)
     #print("source url : ", source_url)
+    #print("########################################################")
     #print("content : ", context)
+    #print("########################################################")
 
     try:
         answer_json = conversation_with_langchain(context, question, chat_history = chat_history)
@@ -232,50 +235,6 @@ def answer_question(question: str, chat_history: str = "") -> dict:
 
     except Exception as e:
         traceback.print_exc()
-        return handle_exception(e)
-
-def main(question: str, openai_api_key: str, pinecone_index_name: str, chat_history_dict:dict = dict()) -> dict:
-    """
-    Main function to answer a question based on the most relevant context from a database.
-
-    Args:
-        question (str): The question to be answered.
-        openai_api_key (str): The API key for OpenAI.
-        pinecone_index_name (str): The name of the Pinecone index.
-
-    Returns:
-        dict: A dictionary containing the answer, source URL, success status, and error message (if any).
-    """
-    try:
-        #print datetime with date
-        datetime_now =datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        print(f'{datetime_now} // Question: {question}')
-        
-        
-        # Check and update the OpenAI API key if necessary.
-        if variables_db.OPENAI_API_KEY != openai_api_key:
-            print('Changing OPENAI_API_KEY')
-            variables_db.OPENAI_API_KEY = openai_api_key
-            openai.api_key = variables_db.OPENAI_API_KEY
-            os.environ['OPENAI_API_KEY'] = openai.api_key
-        
-        # Convert the URL to a Pinecone index name.
-        pinecone_index_name = pinecone_functions.url_to_index_name(pinecone_index_name)
-        
-        # Check if the Pinecone database exists.
-        if not pinecone_functions.is_db_exists(pinecone_index_name):
-            return {"answer": "Error!", "source_url": None, "success": False, "error_message": f"There is no database with name {pinecone_index_name}"}
-        
-        # Check and update the Pinecone index if necessary.
-        if variables_db.PINECONE_INDEX_NAME != pinecone_index_name:
-            print('Changing PINECONE_INDEX')
-            variables_db.PINECONE_INDEX_NAME = pinecone_index_name
-            pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-        chat_history = create_chat_history_string(chat_history_dict)
-        answer = answer_question(question=question, chat_history = chat_history)
-        print(f'{datetime_now} // Answer: {answer}')
-        return answer
-    except Exception as e:
         return handle_exception(e)
 
 def create_chat_history_string(chat_history_dict: dict = dict()) -> str:
@@ -299,11 +258,62 @@ def init() -> None:
     """
     Initialize the necessary components for the application.
     """
-    pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
+    #pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
     load_dotenv()
     openai.api_key = variables_db.OPENAI_API_KEY
     os.environ['OPENAI_API_KEY'] = openai.api_key
     
+############################################################ MAIN FUNCTION ############################################################
+#######################################################################################################################################
+def main(question: str, openai_api_key: str, full_url: str, chat_history_dict:dict = dict()) -> dict:
+    """
+    Main function to answer a question based on the most relevant context from a database.
+
+    Args:
+        question (str): The question to be answered.
+        openai_api_key (str): The API key for OpenAI.
+        full_url (str): The namespace of the website on Pinecone database.
+        chat_history_dict(dict): The chat history of the conversation.
+
+    Returns:
+        dict: A dictionary containing the answer, source URL, success status, and error message (if any).
+    """
+    try:
+        #print datetime with date
+        datetime_now =datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        print(f'{datetime_now} // Question: {question}')
+        
+        # Check and update the OpenAI API key if necessary.
+        if variables_db.OPENAI_API_KEY != openai_api_key:
+            print('Changing OPENAI_API_KEY')
+            variables_db.OPENAI_API_KEY = openai_api_key
+            openai.api_key = variables_db.OPENAI_API_KEY
+            os.environ['OPENAI_API_KEY'] = openai.api_key
+        
+        # Convert the URL to a Pinecone index name.
+        pinecone_namespace = pinecone_functions.url_to_namespace(full_url)
+
+        if pinecone_functions.is_db_exists():
+            # Check and update the Pinecone index if necessary.
+            pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+            index_stats = pinecone_functions.INDEX.describe_index_stats()
+            namespaces = list(index_stats['namespaces'].keys())
+            if pinecone_namespace in namespaces:
+                chat_history = create_chat_history_string(chat_history_dict)
+                response = answer_question(question=question, pinecone_namespace=pinecone_namespace, chat_history = chat_history)
+            else:
+                response = {"answer": "Error!", "source_url": None, "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {full_url}"}
+        else:
+            response = {"answer": "Error!", "source_url": None, "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {full_url}"}          
+
+        print(f"{datetime_now} : Response: ", response)
+        return response
+
+
+    except Exception as e:
+        traceback.print_exc()
+        error_message = traceback.format_exc()
+        return {"answer": "Error!", "source_url": None, "success": False, "error_message": error_message}          
 
 init()
 

@@ -170,7 +170,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         # Otherwise, write the text to the file in the text directory
         text_name = 'text/' + local_domain + '/' + url[8:].replace("/", "_") + ".txt"
         text_name = text_name[11:-4].replace('-', ' ').replace('_', ' ').replace('#update', '')
-
+        text = "source url: "+ url + "\n" + text
         data = (url, text_name, text)
         texts.append(data)
 
@@ -376,49 +376,58 @@ def scraper_status(full_url: str) -> dict:
     Returns:
         dict: Status message and code. 0-> not started, 1-> started, 2-> finished
     """
-    
+    global is_running, current_url
     try:
-        variables_db.PINECONE_INDEX_NAME = pinecone_functions.url_to_index_name(full_url)
-
-        pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
-
-        # Check if there is an index with that name in pinecone
+        pinecone_namespace = pinecone_functions.url_to_namespace(full_url)
+        
         if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
             pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-            result = pinecone_functions.INDEX.fetch(ids=[variables_db.eof_index])
-            if len(result['vectors']) < 1:
+            result = pinecone_functions.INDEX.fetch(ids=[variables_db.eof_index], namespace=pinecone_namespace)
+
+            if is_running and current_url == full_url:
                 message = f"Crawling is started but not finished yet for {full_url}"
                 status_code = 1
-            else:
+            elif len(result['vectors']) > 0:
                 status_code = 2
                 message = f"Crawling is finished for {full_url}"
-            
+            else:
+                status_code = 0
+                message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
         else:
             status_code = 0
             message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
+    
+        response = {"status_message" : message, "status_code": status_code}
+        return response
+    
     except:
+        traceback.print_exc()
         status_code = 0
-        message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
+        message = traceback.format_exc()
     
     return {"status_message" : message, "status_code": status_code}
 
-def delete_index(full_url: str) -> None:
+def delete_namespace(full_url: str) -> None:
     """delete pinecone index if exists
 
     Args:
         full_url (str): _description_
     """
-    variables_db.PINECONE_INDEX_NAME = pinecone_functions.url_to_index_name(full_url)
-
-    pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
+    pinecone_namespace = pinecone_functions.url_to_namespace(full_url)
 
     # Check if there is an index with that name in pinecone
     if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
-        pinecone.delete_index(variables_db.PINECONE_INDEX_NAME)
-        return {"success": True, "message": f"{full_url} is deleted from database"}
+        pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+        index_stats = pinecone_functions.INDEX.describe_index_stats()
+        namespaces = list(index_stats['namespaces'].keys())
+        if pinecone_namespace in namespaces:
+            pinecone_functions.INDEX.delete(delete_all=True, namespace=pinecone_namespace)
+            response = {"success": True, "message": f"{full_url} is deleted from database"}
+        else:
+            response = {"success": False, "message": f"{full_url} is not in database"}
     else:
-        return {"success": False, "message": f"{full_url} is not in database"}
-
+        response = {"success": False, "message": f"{full_url} is not in database"}
+    return response
 def main(full_url: str, gptkey: str) -> None:
     """
     Main function to start the scraping process.
@@ -434,16 +443,20 @@ def main(full_url: str, gptkey: str) -> None:
         timer_start = time.time()
         variables_db.OPENAI_API_KEY = gptkey
         full_url, domain = pinecone_functions.get_domain_and_url(full_url)
-        
-        pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
-        index_name = pinecone_functions.url_to_index_name(full_url)
-        print('index name: ', index_name)
-        variables_db.PINECONE_INDEX_NAME = index_name
+
+        pinecone_namespace = pinecone_functions.url_to_namespace(full_url)
+        print('pinecone_namespace: ', pinecone_namespace)
+        #variables_db.PINECONE_INDEX_NAME = index_name
 
         if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
-            print("deleting the eof row")
+            
             pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-            pinecone_functions.INDEX.delete(ids=[variables_db.eof_index])
+            index_stats = pinecone_functions.INDEX.describe_index_stats()
+            namespaces = list(index_stats['namespaces'].keys())
+
+            if pinecone_namespace in namespaces:
+                print("If eof row exists, deleting the eof row on namespace: ", pinecone_namespace)
+                pinecone_functions.INDEX.delete(ids=[variables_db.eof_index], namespace=pinecone_namespace)
 
         timer_end = time.time()
         print(f"Time to initialize pinecone: {format_time(timer_end - timer_start)}")
@@ -457,7 +470,7 @@ def main(full_url: str, gptkey: str) -> None:
 
         eof_row = {'url': variables_db.eof_index, 'title': variables_db.eof_index, 'text': variables_db.eof_index}
         df = pd.concat([df, pd.DataFrame([eof_row])], ignore_index=True)
-        
+
         print('Crawling completed.')
         timer_end = time.time()
         print(f"Time to crawl: {format_time(timer_end - timer_start)}")
@@ -478,7 +491,7 @@ def main(full_url: str, gptkey: str) -> None:
 
         print('Uploading data to Pinecone...')
         df = convertdf2_pineconetype(df)
-        pinecone_functions.INDEX.upsert_from_dataframe(df, batch_size=2)
+        pinecone_functions.INDEX.upsert_from_dataframe(df, batch_size=2, namespace=pinecone_namespace)
         is_running = False
     except:
         is_running = False
@@ -487,6 +500,7 @@ def main(full_url: str, gptkey: str) -> None:
     print("Data upsert completed.")
     timer_end = time.time()
     print(f"Time to upload data to pinecone: {format_time(timer_end - timer_start)}")
+
 def format_time(seconds):
     minutes, seconds = divmod(int(seconds), 60)
     hours, minutes = divmod(minutes, 60)
@@ -512,6 +526,6 @@ def format_time(seconds):
 
 if __name__ == "__main__":
     # Define root domain to crawl
-    #full_url = "https://gethelp.tiledesk.com/"
-    full_url = "https://www.deghi.it/supporto/"
+    full_url = "https://gethelp.tiledesk.com/"
+    #full_url = "https://www.deghi.it/supporto/"
     main(full_url, variables_db.OPENAI_API_KEY)

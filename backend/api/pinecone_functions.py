@@ -9,6 +9,17 @@ except:
     
 INDEX= None
 
+
+def init_pinecone(api_key, api_key_zone):
+
+    pinecone.init(
+    api_key=api_key,
+    environment=api_key_zone  # find next to API key in console
+    )
+    
+
+init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
+
 def is_api_key_valid(api_key):
     try:
         openai.api_key = api_key
@@ -17,33 +28,29 @@ def is_api_key_valid(api_key):
     except Exception as e:
         return False
 
-def is_db_exists(db_name):
+def is_db_exists():
     """ Check if a database exists
     """
-    if db_name in pinecone.list_indexes():
+    if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
         return True
     else:
         return False
 
-def init_pinecone(api_key, api_key_zone):
-    pinecone.init(
-    api_key=api_key,
-    environment=api_key_zone  # find next to API key in console
-    )
 
 def create_index(dimention):
-    if is_db_exists(variables_db.PINECONE_INDEX_NAME ):
+    if is_db_exists():
         print(f"{variables_db.PINECONE_INDEX_NAME} already exists. Skipping creation")
     else:
         print(f"Creating {variables_db.PINECONE_INDEX_NAME} index")
         pinecone.create_index(name=variables_db.PINECONE_INDEX_NAME, metric="cosine", dimension=dimention)
+
 
 def retrieve_index():
     return pinecone.Index(index_name=variables_db.PINECONE_INDEX_NAME)
 
 import re
 
-def url_to_index_name(url):
+def url_to_namespace(url):
     # Remove 'https://' or 'http://'
     url = re.sub(r'^https?://', '', url)
 

@@ -47,7 +47,7 @@ def qa_run_api(inputs: QA_Inputs):
     answer = qa_run.main(
         question=inputs.question,
         openai_api_key=inputs.gptkey,
-        pinecone_index_name=inputs.kbid,
+        full_url=inputs.kbid,
         chat_history_dict=inputs.chat_history_dict)
 
     return answer
@@ -77,7 +77,7 @@ def scraper_status_api(inputs: Status_Inputs):
 # The api for deleting the index from pinecone database
 @app.post("/api/scrape/delete")
 def delete_index_api(inputs: Status_Inputs):
-    status = qa_scraper.delete_index(inputs.full_url)
+    status = qa_scraper.delete_namespace(inputs.full_url)
 
     return status
 
