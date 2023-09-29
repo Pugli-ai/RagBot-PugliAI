@@ -38,6 +38,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from webdriver_manager.firefox import GeckoDriverManager
 
 is_outsourceapi= False
 is_selenium = True
@@ -231,7 +232,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         firefox_options.add_argument('--headless')  # Uncomment to run headless
         firefox_options.add_argument("--log-level=3")
 
-        driver = webdriver.Firefox(options=firefox_options)
+        driver = webdriver.Firefox(service=Service(executable_path=GeckoDriverManager().install()), options=firefox_options)
         print("######################")
         print(driver)
         print("######################")
