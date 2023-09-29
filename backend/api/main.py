@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from api import pinecone_functions
+import os
 
 class ErrorResponse(BaseModel):
     detail: str
@@ -66,6 +67,25 @@ async def scraper_api(inputs: Scraper_Inputs, background_tasks: BackgroundTasks)
 
         background_tasks.add_task(qa_scraper.main, inputs.full_url, inputs.gptkey)
         return {"message": "Scrape started! Check scraping status API for progress."}
+
+# start_scrape api for scraping the url and saving the result into pinecone database
+@app.post("/api/pwd")
+async def pwd():
+    pwd = ""
+    pwd_items =""
+    parent_items = ""
+    pwd = os.getcwd()
+    try:
+        pwd= os.getcwd()
+        pwd_items = os.listdir()
+    except:
+        pass
+    try:
+        parent_items = os.listdir(os.path.dirname(os.getcwd()))
+    except:
+        pass
+    return {"pwd": pwd, "pwd_items": pwd_items, "parent_items": parent_items}
+
 
 # generate_response api for checking the status of scraping process
 @app.post("/api/scrape/status")
