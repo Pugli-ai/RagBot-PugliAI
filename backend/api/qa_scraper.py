@@ -37,6 +37,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
 is_outsourceapi= False
 is_selenium = True
@@ -225,12 +226,12 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
     print("SELENIUM TRY TO INIT")
     if is_selenium:
         # Set up the webdriver
-        chrome_options = Options()
-        #chrome_options.add_argument('--headless')
-        chrome_options.add_argument("--log-level=3")
-        chrome_options.add_argument('--headless')
-         
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        # Set up the webdriver
+        firefox_options = FirefoxOptions()
+        firefox_options.add_argument('--headless')  # Uncomment to run headless
+        firefox_options.add_argument("--log-level=3")
+
+        driver = webdriver.Firefox(options=firefox_options)
         print("######################")
         print(driver)
         print("######################")
