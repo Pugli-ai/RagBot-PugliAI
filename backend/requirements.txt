@@ -15,5 +15,5 @@ beautifulsoup4
 tiktoken
 langchain==0.0.216
 nltk
-webdriver_manager
-selenium
+webdriver_manager==4.0.1
+selenium==4.13.0

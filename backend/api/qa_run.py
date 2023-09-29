@@ -220,9 +220,9 @@ def answer_question(question: str, pinecone_namespace: str, chat_history: str = 
 
     context = create_context(question, pinecone_namespace)
     #print("source url : ", source_url)
-    #print("########################################################")
-    #print("content : ", context)
-    #print("########################################################")
+    print("########################################################")
+    print("content : ", context)
+    print("########################################################")
 
     try:
         answer_json = conversation_with_langchain(context, question, chat_history = chat_history)
@@ -324,7 +324,7 @@ if __name__ == "__main__":
     #full_url = "https://docs.pinecone.io/"
 
     #full_url = "https://knowledge.webafrica.co.za"
-    #full_url = "https://aulab.it/"
+    full_url = "https://aulab.it/"
     #full_url = "https://ecobaby.it/"
     #full_url = "https://lineaamica.gov.it/" # TRY IT LONGER
     #full_url = "http://cairorcsmedia.it/"
@@ -332,7 +332,7 @@ if __name__ == "__main__":
     #full_url = "https://www.ucl.ac.uk/"
     #full_url = "http://iostudiocongeco.it/"
     #full_url = "https://www.postpickr.com/"
-    full_url = "https://www.loloballerina.com/"
+    #full_url = "https://www.loloballerina.com/"
 
     if full_url == "https://gethelp.tiledesk.com/":
         question_list = [

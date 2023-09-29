@@ -35,6 +35,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 is_outsourceapi= False
 is_selenium = True
@@ -220,14 +222,18 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         pd.DataFrame: DataFrame containing the crawled content.
     """
     global is_outsourceapi, is_selenium
-
+    print("SELENIUM TRY TO INIT")
     if is_selenium:
         # Set up the webdriver
         chrome_options = Options()
         #chrome_options.add_argument('--headless')
         chrome_options.add_argument("--log-level=3")
         chrome_options.add_argument('--headless')
-        driver = webdriver.Chrome(options=chrome_options)
+         
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        print("######################")
+        print(driver)
+        print("######################")
         sleep(1)
         # Navigate to the webpage
         driver.get(url)
@@ -246,7 +252,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
     if is_selenium:
         sleep(10)
 
-    while queue and len(texts) < 200:
+    while queue and len(texts) < 10:
         # Get the next URL from the queue
         url = queue.pop()
         # If url does not end with /, add it
@@ -631,7 +637,8 @@ def main(full_url: str, gptkey: str) -> None:
         is_running = False
     except:
         is_running = False
-        traceback.print_exc()
+        #traceback.print_exc()
+        print(traceback.format_exc())
 
     print("Data upsert completed.")
     timer_end = time.time()
@@ -662,10 +669,10 @@ def format_time(seconds):
 
 if __name__ == "__main__":
     # Define root domain to crawl
-    full_url = "https://gethelp.tiledesk.com/"
+    #full_url = "https://gethelp.tiledesk.com/"
     #full_url = "https://www.deghi.it/supporto/"
     #full_url = "https://knowledge.webafrica.co.za"
-    #full_url = "https://aulab.it/"
+    full_url = "https://aulab.it/"
     #full_url = "https://ecobaby.it/"
     #full_url = "https://lineaamica.gov.it/"
     #full_url = "http://cairorcsmedia.it/"
