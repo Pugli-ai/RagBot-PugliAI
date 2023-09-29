@@ -220,9 +220,9 @@ def answer_question(question: str, pinecone_namespace: str, chat_history: str = 
 
     context = create_context(question, pinecone_namespace)
     #print("source url : ", source_url)
-    print("########################################################")
-    print("content : ", context)
-    print("########################################################")
+    #print("########################################################")
+    #print("content : ", context)
+    #print("########################################################")
 
     try:
         answer_json = conversation_with_langchain(context, question, chat_history = chat_history)
