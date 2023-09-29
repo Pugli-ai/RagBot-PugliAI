@@ -255,6 +255,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         sleep(10)
 
     while queue and len(texts) < 200:
+        print(len(texts), " pages so far")
         # Get the next URL from the queue
         url = queue.pop()
         # If url does not end with /, add it
@@ -674,7 +675,7 @@ if __name__ == "__main__":
     #full_url = "https://gethelp.tiledesk.com/"
     #full_url = "https://www.deghi.it/supporto/"
     #full_url = "https://knowledge.webafrica.co.za"
-    full_url = "https://aulab.it/"
+    #full_url = "https://aulab.it/"
     #full_url = "https://ecobaby.it/"
     #full_url = "https://lineaamica.gov.it/"
     #full_url = "http://cairorcsmedia.it/"
@@ -683,4 +684,5 @@ if __name__ == "__main__":
     #full_url = "http://iostudiocongeco.it/"
     #full_url = "https://www.postpickr.com/"
     #full_url = "https://www.loloballerina.com/"
+    full_url = "https://developer.tiledesk.com/" # TRY ITT!!!!
     main(full_url, variables_db.OPENAI_API_KEY)
