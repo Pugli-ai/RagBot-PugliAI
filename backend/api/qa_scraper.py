@@ -232,7 +232,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         firefox_options.add_argument('--headless')  # Uncomment to run headless
         firefox_options.add_argument("--log-level=3")
 
-        driver = webdriver.Firefox(service=Service(executable_path="geckodriver"), options=firefox_options)
+        driver = webdriver.Firefox(service=Service(executable_path="/api/api/geckodriver"), options=firefox_options)
         print("######################")
         print(driver)
         print("######################")

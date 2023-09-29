@@ -74,6 +74,7 @@ async def pwd():
     pwd = ""
     pwd_items =""
     parent_items = ""
+    api_items=""
     pwd = os.getcwd()
     try:
         pwd= os.getcwd()
@@ -84,7 +85,11 @@ async def pwd():
         parent_items = os.listdir(os.path.dirname(os.getcwd()))
     except:
         pass
-    return {"pwd": pwd, "pwd_items": pwd_items, "parent_items": parent_items}
+    try:
+        api_items= os.listdir("__pycache__")
+    except:
+        pass
+    return {"pwd": pwd, "pwd_items": pwd_items, "parent_items": parent_items, "api_items": api_items}
 
 
 # generate_response api for checking the status of scraping process
