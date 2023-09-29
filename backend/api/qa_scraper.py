@@ -25,6 +25,19 @@ except ImportError:
     import variables_db
     import pinecone_functions
 import pinecone
+import nltk
+nltk.download('punkt')
+from nltk.tokenize import sent_tokenize
+from urllib.parse import urlencode
+
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+
+is_outsourceapi= False
+is_selenium = True
 
 is_running = False
 current_url = None
@@ -69,9 +82,12 @@ def get_hyperlinks(url: str) -> list:
         list: List of hyperlinks.
     """
     headers = {'User-Agent': 'Mozilla/5.0'}
-
+    global is_outsourceapi
     try:
-        response = requests.get(url, headers=headers)
+        if is_outsourceapi:
+            response = requests.get('http://api.scraperapi.com/', params=urlencode({'api_key': "3555494125444f7cb3f561e2062d80c1", 'url': url}))
+        else:
+            response = requests.get(url, headers=headers)
         
         # If the response is not HTML, return an empty list
         if not response.headers.get('Content-Type').startswith("text/html"):
@@ -87,6 +103,73 @@ def get_hyperlinks(url: str) -> list:
     parser.feed(html)
 
     return parser.hyperlinks
+
+def get_hyperlinks_with_selenium(driver: webdriver) -> list:
+    """
+    Fetch hyperlinks from a given URL using Selenium WebDriver.
+
+    Args:
+        driver (webdriver): The Selenium WebDriver instance.
+
+    Returns:
+        list: List of hyperlinks.
+    """
+    try:
+        # Get the current URL and page source from the driver
+        url = driver.current_url
+        html = driver.page_source
+
+        # If the URL is not HTML, return an empty list
+        # Note: Selenium usually deals with HTML, so this check might be redundant
+        if not "text/html" in driver.execute_script("return document.contentType"):
+            return []
+    except Exception as e:
+        print(e)
+        return []
+
+    # Create the HTML Parser and then Parse the HTML to get hyperlinks
+    parser = HyperlinkParser()
+    parser.feed(html)
+
+    return parser.hyperlinks
+
+def get_domain_hyperlinks_with_selenium(local_domain: str, driver: webdriver) -> list:
+    """
+    Fetch hyperlinks from a URL that are within the same domain.
+
+    Args:
+        local_domain (str): The domain to filter links by.
+        driver (webdriver): The Selenium WebDriver instance.
+
+    Returns:
+        list: List of hyperlinks within the domain.
+    """
+    clean_links = []
+    for link in set(get_hyperlinks_with_selenium(driver)):
+        clean_link = None
+
+        # If the link is a URL, check if it is within the same domain
+        if re.search(HTTP_URL_PATTERN, link):
+            # Parse the URL and check if the domain is the same
+            url_obj = urlparse(link)
+            if url_obj.netloc == local_domain:
+                clean_link = link
+
+        # If the link is not a URL, check if it is a relative link
+        else:
+            if link.startswith("/"):
+                link = link[1:]
+            elif link.startswith("#") or link.startswith("mailto:"):
+                continue
+            clean_link = "https://" + local_domain + "/" + link
+
+        if clean_link is not None:
+            if clean_link.endswith("/"):
+                clean_link = clean_link[:-1]
+            clean_links.append(clean_link)
+
+    # Return the list of hyperlinks that are within the same domain
+    return list(set(clean_links))  
 
 def get_domain_hyperlinks(local_domain: str, url: str) -> list:
     """
@@ -136,6 +219,19 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame containing the crawled content.
     """
+    global is_outsourceapi, is_selenium
+
+    if is_selenium:
+        # Set up the webdriver
+        chrome_options = Options()
+        #chrome_options.add_argument('--headless')
+        chrome_options.add_argument("--log-level=3")
+        chrome_options.add_argument('--headless')
+        driver = webdriver.Chrome(options=chrome_options)
+        sleep(1)
+        # Navigate to the webpage
+        driver.get(url)
+
     # Parse the URL and get the domain
     local_domain = urlparse(url).netloc
 
@@ -147,38 +243,68 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
 
     texts = []
     # While the queue is not empty, continue crawling
-    while queue:
+    if is_selenium:
+        sleep(10)
+
+    while queue and len(texts) < 200:
         # Get the next URL from the queue
         url = queue.pop()
         # If url does not end with /, add it
         url = url.strip()
+        
         if not url.endswith("/"):
             url += "/"
-        
+        url = url.replace('%2F%2F%2F', '')
+
         print(url)  # For debugging and to see the progress
-
+        #url = "https://ecobaby.it/shop/primi-giochi/840-6065-https-ecobaby-it-shop-primi-giochi-840-6066-Pinguino-sempre-in-piedi-html.html#/4565-colore-grigio/"
+        
         # Get the text from the URL using BeautifulSoup
-        soup = BeautifulSoup(requests.get(url).text, "html.parser")
+        if is_outsourceapi:
+           text =  requests.get('http://api.scraperapi.com/', params=urlencode({'api_key': "3555494125444f7cb3f561e2062d80c1", 'url': url})).text
+        elif is_selenium:
+            try:
+                driver.get(url)
+                sleep(1)
+                text = driver.find_element(By.TAG_NAME, 'body').text
+            except:
+                print("Unable to parse page: " + url)
+                continue  
+        else:
+            soup = BeautifulSoup(requests.get(url).text, "html.parser")
+            # Get the text but remove the tags
+            text = soup.get_text()
 
-        # Get the text but remove the tags
-        text = soup.get_text()
-
+        clean_url = url[:-1] if url.endswith("/") else url
         # If the crawler gets to a page that requires JavaScript, it will stop the crawl
         if ("You need to enable JavaScript to run this app." in text):
             print("Unable to parse page " + url + " due to JavaScript being required")
             continue
+        elif any(clean_url.endswith(ext) for ext in variables_db.avoid_extensions):
+            continue
+
         # Otherwise, write the text to the file in the text directory
         text_name = 'text/' + local_domain + '/' + url[8:].replace("/", "_") + ".txt"
         text_name = text_name[11:-4].replace('-', ' ').replace('_', ' ').replace('#update', '')
-        text = "source url: "+ url + "\n" + text
+        #text = "source url: "+ url + "\n" + text
         data = (url, text_name, text)
         texts.append(data)
-
-        # Get the hyperlinks from the URL and add them to the queue
-        for link in get_domain_hyperlinks(local_domain, url):
-            if link not in seen:
-                queue.append(link)
-                seen.add(link)
+        if is_selenium:
+            # Get the hyperlinks from the URL and add them to the queue
+            for link in get_domain_hyperlinks_with_selenium(local_domain, driver): # is_selenium get_domain_hyperlinks_with_selenium or get_domain_hyperlinks
+                link = link.replace('%2F%2F%2F', '')
+                if link not in seen:
+                    queue.append(link)
+                    seen.add(link)
+        else:  
+            # Get the hyperlinks from the URL and add them to the queue
+            for link in get_domain_hyperlinks(local_domain, url): # is_selenium get_domain_hyperlinks_with_selenium or get_domain_hyperlinks
+                link = link.replace('%2F%2F%2F', '')
+                if link not in seen:
+                    queue.append(link)
+                    seen.add(link)
+    if is_selenium:
+        driver.quit()
 
     return pd.DataFrame(texts, columns=['url', 'title', 'text']).drop_duplicates(keep='last')
 
@@ -194,11 +320,10 @@ def remove_newlines(serie: pd.Series) -> pd.Series:
     """
     serie = serie.str.replace('\n', ' ')
     serie = serie.str.replace('\\n', ' ')
-    serie = serie.str.replace('  ', ' ')
-    serie = serie.str.replace('  ', ' ')
+    serie = serie.apply(lambda x: re.sub(' +', ' ', x))
     return serie
 
-def split_into_many(url: str, text: str, tokenizer, max_tokens: int = 500) -> list:
+def split_into_many(url: str, text: str, tokenizer, max_tokens: int) -> list:
     """
     Split text into chunks based on a maximum number of tokens.
 
@@ -206,20 +331,25 @@ def split_into_many(url: str, text: str, tokenizer, max_tokens: int = 500) -> li
         url (str): The URL associated with the text.
         text (str): The text to be split.
         tokenizer: The tokenizer to use.
-        max_tokens (int, optional): Maximum tokens per chunk. Defaults to 500.
+        max_tokens (int, optional): Maximum tokens per chunk.
 
     Returns:
         list: List of text chunks.
     """
     # Split the text into sentences
-    sentences = text.split('. ')
+    sentences = sent_tokenize(text)
 
     # Get the number of tokens for each sentence
     n_tokens = [len(tokenizer.encode(" " + sentence)) for sentence in sentences]
-    
+    # token of url
+    title = "source url: " + url + " "
+    title_n_tokens = len(tokenizer.encode(" " + title))
+    max_tokens = max_tokens - title_n_tokens
+
     chunks = []
     tokens_so_far = 0
     chunk = []
+    counter=0
 
     # Loop through the sentences and tokens joined together in a tuple
     for sentence, token in zip(sentences, n_tokens):
@@ -227,10 +357,15 @@ def split_into_many(url: str, text: str, tokenizer, max_tokens: int = 500) -> li
         # If the number of tokens so far plus the number of tokens in the current sentence is greater 
         # than the max number of tokens, then add the chunk to the list of chunks and reset
         # the chunk and tokens so far
+        
         if tokens_so_far + token > max_tokens:
-            chunks.append((url, ". ".join(chunk) + "."))
+            final_text = ". ".join(chunk) + "."
+            final_text = title + final_text
+            url_with_id = url +"#"+str(counter)
+            chunks.append((url_with_id, final_text))
             chunk = []
             tokens_so_far = 0
+            counter+=1
 
         # If the number of tokens in the current sentence is greater than the max number of 
         # tokens, go to the next sentence
@@ -254,7 +389,7 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: Preprocessed DataFrame.
     """
     # Set the text column to be the raw text with the newlines removed
-    df['text'] = df.title + ". " + remove_newlines(df.text)
+    df['text'] = remove_newlines(df.text)
 
     # Load the cl100k_base tokenizer which is designed to work with the ada-002 model
     tokenizer = tiktoken.get_encoding("cl100k_base")
@@ -262,7 +397,7 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     # Tokenize the text and save the number of tokens to a new column
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
 
-    max_tokens = 500
+    max_tokens = 1000
 
     shortened = []
 
@@ -279,7 +414,8 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
         
         # Otherwise, add the text to the list of shortened texts
         else:
-            shortened.append((url, row[1]['text']))
+            text= "source url: " + url + " " + row[1]['text']
+            shortened.append((url, text))
 
     df = pd.DataFrame(shortened, columns=['url', 'text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
@@ -335,7 +471,7 @@ def crawl_deghi() -> pd.DataFrame:
     for div in divs_with_class:
         header = div.find("div", class_="card-header").text.strip()
         body = div.find("div", class_="card-body").text.strip()
-        body = "source url: "+ header + "\n" + body
+        #body = "source url: "+ header + "\n" + body
         # Remove non-ASCII characters from header
         header = header.encode("ascii", "ignore").decode()
         headers.append(header)
@@ -528,4 +664,14 @@ if __name__ == "__main__":
     # Define root domain to crawl
     full_url = "https://gethelp.tiledesk.com/"
     #full_url = "https://www.deghi.it/supporto/"
+    #full_url = "https://knowledge.webafrica.co.za"
+    #full_url = "https://aulab.it/"
+    #full_url = "https://ecobaby.it/"
+    #full_url = "https://lineaamica.gov.it/"
+    #full_url = "http://cairorcsmedia.it/"
+    #full_url = "https://www.sace.it/"
+    #full_url = "https://www.ucl.ac.uk/"
+    #full_url = "http://iostudiocongeco.it/"
+    #full_url = "https://www.postpickr.com/"
+    #full_url = "https://www.loloballerina.com/"
     main(full_url, variables_db.OPENAI_API_KEY)

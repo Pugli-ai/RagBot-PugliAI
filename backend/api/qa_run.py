@@ -319,27 +319,32 @@ init()
 
 if __name__ == "__main__":
 
-    full_url = "https://www.deghi.it/supporto/"
+    #full_url = "https://www.deghi.it/supporto/"
     #full_url= "https://gethelp.tiledesk.com/"
     #full_url = "https://docs.pinecone.io/"
 
+    #full_url = "https://knowledge.webafrica.co.za"
+    #full_url = "https://aulab.it/"
+    #full_url = "https://ecobaby.it/"
+    #full_url = "https://lineaamica.gov.it/" # TRY IT LONGER
+    #full_url = "http://cairorcsmedia.it/"
+    #full_url = "https://www.sace.it/"
+    #full_url = "https://www.ucl.ac.uk/"
+    #full_url = "http://iostudiocongeco.it/"
+    #full_url = "https://www.postpickr.com/"
+    full_url = "https://www.loloballerina.com/"
+
     if full_url == "https://gethelp.tiledesk.com/":
+        question_list = [
+                        "What is tiledesk?",
+                        "What day is it?",
+                        "which javascript code should i copy and paste for installing the widget on my website ? please write me that javascript code",
+                        "Ciao",
+                        "How to connect Tiledesk with Telegram",
 
-        question = "What is tiledesk?"
-        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-        print(f"Question: {question}\nAnswer: {answer}")
-
-        question = "What day is it?"
-        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-        print(f"Question: {question}\nAnswer: {answer}")
-
-        question="which javascript code should i copy and paste for installing the widget on my website ? please write me that javascript code"
-        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-        print(f"Question: {question}\nAnswer: {answer}")
-
-        question="How to connect Tiledesk with Telegram"
-        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
-        print(f"Question: {question}\nAnswer: {answer}")
+        ]
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
 
     elif full_url == "https://www.deghi.it/supporto/":
         question_list = [
@@ -367,8 +372,82 @@ if __name__ == "__main__":
         question = "How to create an index?"
         answer = main(question, variables_db.OPENAI_API_KEY, full_url)
         print(f"Question: {question}\nAnswer: {answer}")
+    elif full_url == "https://knowledge.webafrica.co.za":
+        question_list = [
+                        "Why should i use webafrica?",
+                        
+        ]
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)        
+    elif full_url == "https://ecobaby.it/":
+        question_list = [
+                        "What is ecobaby?",
+                        
+        ]
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+    elif full_url == "https://aulab.it/":
+        question_list = [
+                        "What is web programming?",
+                      
+        ] 
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+    elif full_url == "https://lineaamica.gov.it/":
+        question_list = [
+                        "What is web lineaamicia?",
+                      
+        ] 
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
 
+    elif full_url == "http://cairorcsmedia.it/":
+        question_list = [
+                        "What is cairorcs media?",
+                      
+        ] 
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
 
+    elif full_url == "https://www.sace.it/":
+        question_list = [
+                        "What is sace?",
+                      
+        ] 
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+
+    elif full_url == "https://www.ucl.ac.uk/":
+        question_list = [
+                        "What is ucl?",
+                      
+        ] 
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+
+    elif full_url == "http://iostudiocongeco.it/":
+        question_list = [
+                        "What is iostudiocongeco?",
+                      
+        ] 
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+
+    elif full_url == "https://www.postpickr.com/":
+        question_list = [
+                        "What is postpickr?",
+                      
+        ] 
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+
+    elif full_url == "https://www.loloballerina.com/":
+        question_list = [
+                        "What is loloballerina?",
+                      
+        ] 
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
 '''
 Prompts,
 template = """

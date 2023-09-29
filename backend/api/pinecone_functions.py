@@ -78,7 +78,7 @@ def get_domain_and_url(full_url):
         full_url += "/"
     
     #make full_url start with https:// if not
-    if not full_url.startswith("https://"):
+    if not full_url.startswith("https://") and not full_url.startswith("http://"):
         full_url = "https://" + full_url
     
     domain = urlparse(full_url).netloc # gethelp.tiledesk.com
