@@ -255,7 +255,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         sleep(10)
 
     while queue and len(texts) < 200:
-        print(len(texts), " pages so far")
+
         # Get the next URL from the queue
         url = queue.pop()
         # If url does not end with /, add it
@@ -265,7 +265,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
             url += "/"
         url = url.replace('%2F%2F%2F', '')
 
-        print(url)  # For debugging and to see the progress
+        print(f'{len(texts)}.page: "{url}"')  # For debugging and to see the progress
         #url = "https://ecobaby.it/shop/primi-giochi/840-6065-https-ecobaby-it-shop-primi-giochi-840-6066-Pinguino-sempre-in-piedi-html.html#/4565-colore-grigio/"
         
         # Get the text from the URL using BeautifulSoup
