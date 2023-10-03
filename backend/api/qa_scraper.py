@@ -351,7 +351,7 @@ def split_into_many(url: str, text: str, tokenizer, max_tokens: int) -> list:
     # Get the number of tokens for each sentence
     n_tokens = [len(tokenizer.encode(" " + sentence)) for sentence in sentences]
     # token of url
-    title = "source url: " + url + " "
+    title = "source url: " + url + " \n\n"
     title_n_tokens = len(tokenizer.encode(" " + title))
     max_tokens = max_tokens - title_n_tokens
 
@@ -423,7 +423,7 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
         
         # Otherwise, add the text to the list of shortened texts
         else:
-            text= "source url: " + url + " " + row[1]['text']
+            text= "source url: " + url + " \n\n" + row[1]['text']
             shortened.append((url, text))
 
     df = pd.DataFrame(shortened, columns=['url', 'text'])
