@@ -277,7 +277,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
                 driver.get(url)
                 sleep(1)
                 text = driver.find_element(By.TAG_NAME, 'body').text
-                url_list_for_printing[len(texts)] = url
+                # url_list_for_printing[len(texts)] = url # debug
             except:
                 print("Unable to parse page: " + url)
                 continue  
@@ -318,8 +318,8 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         driver.quit()
 
     # Printing urls in as dict to see the final result
-    print("Printing urls in as dict to see the final result")
-    print(url_list_for_printing)
+    #print("Printing urls in as dict to see the final result") #debug
+    #print(url_list_for_printing) #debug
     return pd.DataFrame(texts, columns=['url', 'title', 'text']).drop_duplicates(keep='last')
 
 def remove_newlines(serie: pd.Series) -> pd.Series:
