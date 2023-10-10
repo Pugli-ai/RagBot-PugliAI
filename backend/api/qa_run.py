@@ -15,6 +15,8 @@ except ImportError:
 import json
 from datetime import datetime
 
+context_print_option= False
+
 ########################################################### CHILD FUNCTIONS ###########################################################
 #######################################################################################################################################
 
@@ -217,12 +219,12 @@ def answer_question(question: str, pinecone_namespace: str, chat_history: str = 
     Returns:
         dict: A dictionary containing the answer, source URL, success status, and error message (if any).
     """
-
+    global context_print_option
     context = create_context(question, pinecone_namespace)
-    #print("source url : ", source_url)
-    #print("########################################################")
-    #print("content : ", context)
-    #print("########################################################")
+    if context_print_option:
+        print("########################################################")
+        print("content : ", context)
+        print("########################################################")
 
     try:
         answer_json = conversation_with_langchain(context, question, chat_history = chat_history)

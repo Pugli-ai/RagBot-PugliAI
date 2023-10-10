@@ -46,6 +46,8 @@ is_selenium = True
 is_running = False
 current_url = None
 
+url_list_print_option= False
+
 # Regex pattern to match a URL
 HTTP_URL_PATTERN = r'^http[s]*://.+'
 
@@ -223,8 +225,8 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame containing the crawled content.
     """
-    global is_outsourceapi, is_selenium
-    url_list_for_printing = dict()
+    global is_outsourceapi, is_selenium, url_list_print_option, current_url
+    url_list_for_printing = dict() 
     print("SELENIUM TRY TO INIT")
     if is_selenium:
         # Set up the webdriver
@@ -265,10 +267,17 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         if not url.endswith("/"):
             url += "/"
         url = url.replace('%2F%2F%2F', '')
+        clean_url = url[:-1] if url.endswith("/") else url
+
+        if not url.startswith(current_url):
+            print("Page skipped:  " + url + " due to not starting with "+ current_url)
+            continue
+        elif any(clean_url.endswith(ext) for ext in variables_db.avoid_extensions):
+            print("Page skipped:  " + url + " due to extension")
+            continue
 
         print(f'{len(texts)}.page: "{url}"')  # For debugging and to see the progress
-        #url = "https://ecobaby.it/shop/primi-giochi/840-6065-https-ecobaby-it-shop-primi-giochi-840-6066-Pinguino-sempre-in-piedi-html.html#/4565-colore-grigio/"
-        
+
         # Get the text from the URL using BeautifulSoup
         if is_outsourceapi:
            text =  requests.get('http://api.scraperapi.com/', params=urlencode({'api_key': "3555494125444f7cb3f561e2062d80c1", 'url': url})).text
@@ -277,7 +286,8 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
                 driver.get(url)
                 sleep(1)
                 text = driver.find_element(By.TAG_NAME, 'body').text
-                # url_list_for_printing[len(texts)] = url # debug
+                if url_list_print_option:
+                    url_list_for_printing[len(texts)] = url
             except:
                 print("Unable to parse page: " + url)
                 continue  
@@ -286,18 +296,14 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
             # Get the text but remove the tags
             text = soup.get_text()
 
-        clean_url = url[:-1] if url.endswith("/") else url
         # If the crawler gets to a page that requires JavaScript, it will stop the crawl
         if ("You need to enable JavaScript to run this app." in text):
             print("Unable to parse page " + url + " due to JavaScript being required")
-            continue
-        elif any(clean_url.endswith(ext) for ext in variables_db.avoid_extensions):
             continue
 
         # Otherwise, write the text to the file in the text directory
         text_name = 'text/' + local_domain + '/' + url[8:].replace("/", "_") + ".txt"
         text_name = text_name[11:-4].replace('-', ' ').replace('_', ' ').replace('#update', '')
-        #text = "source url: "+ url + "\n" + text
         data = (url, text_name, text)
         texts.append(data)
         if is_selenium:
@@ -318,8 +324,9 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         driver.quit()
 
     # Printing urls in as dict to see the final result
-    #print("Printing urls in as dict to see the final result") #debug
-    #print(url_list_for_printing) #debug
+    if url_list_print_option:
+        print("Printing urls in as dict to see the final result")
+        print(url_list_for_printing)
     return pd.DataFrame(texts, columns=['url', 'title', 'text']).drop_duplicates(keep='last')
 
 def remove_newlines(serie: pd.Series) -> pd.Series:
