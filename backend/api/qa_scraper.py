@@ -224,6 +224,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
         pd.DataFrame: DataFrame containing the crawled content.
     """
     global is_outsourceapi, is_selenium
+    url_list_for_printing = dict()
     print("SELENIUM TRY TO INIT")
     if is_selenium:
         # Set up the webdriver
@@ -276,6 +277,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
                 driver.get(url)
                 sleep(1)
                 text = driver.find_element(By.TAG_NAME, 'body').text
+                url_list_for_printing[len(texts)] = url
             except:
                 print("Unable to parse page: " + url)
                 continue  
@@ -315,6 +317,9 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
     if is_selenium:
         driver.quit()
 
+    # Printing urls in as dict to see the final result
+    print("Printing urls in as dict to see the final result")
+    print(url_list_for_printing)
     return pd.DataFrame(texts, columns=['url', 'title', 'text']).drop_duplicates(keep='last')
 
 def remove_newlines(serie: pd.Series) -> pd.Series:
@@ -684,5 +689,6 @@ if __name__ == "__main__":
     #full_url = "http://iostudiocongeco.it/"
     #full_url = "https://www.postpickr.com/"
     #full_url = "https://www.loloballerina.com/"
-    full_url = "https://developer.tiledesk.com/" # TRY ITT!!!!
+    #full_url = "https://developer.tiledesk.com/" # TRY ITT!!!!
+    full_url = "https://www.metrabuilding.com/blog/"
     main(full_url, variables_db.OPENAI_API_KEY)
