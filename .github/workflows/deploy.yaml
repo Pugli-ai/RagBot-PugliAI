@@ -32,4 +32,4 @@ jobs:
           with:
             azcliversion: 2.30.0
             inlineScript: |
-              az container restart --name tiledesk-backend  --resource-group tiledesk
+              az container restart --name tiledesk-app  --resource-group tiledesk
