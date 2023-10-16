@@ -46,6 +46,7 @@ class Status_Inputs(BaseModel):
 @app.post("/api/qa")
 def qa_run_api(inputs: QA_Inputs):
     print("Hi, Welcome to the QA API #####################")
+    print("Please ask a question...")
     answer = qa_run.main(
         question=inputs.question,
         openai_api_key=inputs.gptkey,
