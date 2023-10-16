@@ -1,0 +1,42 @@
+name: Trigger auto deployment for tiledesk-app
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: 
+      [ main ]
+    paths:
+    - 'deploy/Dockerfile_backend/**'
+    - '.github/workflows/tiledesk-app-AutoDeployTrigger-1b05311d-fdf8-4e1b-812b-3ed7fcba8519.yml'
+
+  # Allow manual trigger 
+  workflow_dispatch:
+      
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.TILEDESKAPP_AZURE_CREDENTIALS }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          appSourcePath: ${{ github.workspace }}/deploy/Dockerfile_backend 
+          registryUrl: tiledeskacr.azurecr.io
+          registryUsername: ${{ secrets.TILEDESKAPP_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.TILEDESKAPP_REGISTRY_PASSWORD }}
+          containerAppName: tiledesk-app
+          resourceGroup: tiledesk
+          imageToBuild: tiledeskacr.azurecr.io/tiledesk-app:${{ github.sha }}
+          dockerfilePath: Dockerfile
+
+     
+
