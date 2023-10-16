@@ -7,7 +7,7 @@ on:
     branches: 
       [ main ]
     paths:
-    - 'deploy/Dockerfile_backend/**'
+    - '**'
     - '.github/workflows/tiledesk-app-AutoDeployTrigger-1b05311d-fdf8-4e1b-812b-3ed7fcba8519.yml'
 
   # Allow manual trigger 
@@ -29,14 +29,14 @@ jobs:
       - name: Build and push container image to registry
         uses: azure/container-apps-deploy-action@v1
         with:
-          appSourcePath: ./deploy/Dockerfile_backend 
+          appSourcePath: ${{ github.workspace }} 
           registryUrl: tiledeskacr.azurecr.io
           registryUsername: ${{ secrets.TILEDESKAPP_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.TILEDESKAPP_REGISTRY_PASSWORD }}
           containerAppName: tiledesk-app
           resourceGroup: tiledesk
-          imageToBuild: tiledeskacr.azurecr.io/tiledesk-app:${{ github.sha }}
-          dockerfilePath: Dockerfile
+          imageToBuild: tiledeskacr.azurecr.io/tiledesk-backend:${{ github.sha }}
+          
 
      
 
