@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks
 from api import qa_run
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,12 +9,17 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from api import pinecone_functions
 import os
+from queue import Queue
+import asyncio
+
+
 
 class ErrorResponse(BaseModel):
     detail: str
 
 
 app = FastAPI()
+task_queue = Queue()
 
 origins = ["*"]
 
@@ -45,8 +50,6 @@ class Status_Inputs(BaseModel):
 
 @app.post("/api/qa")
 def qa_run_api(inputs: QA_Inputs):
-    print("Hi, Welcome to the QA API #####################")
-    print("Please ask a question...")
     answer = qa_run.main(
         question=inputs.question,
         openai_api_key=inputs.gptkey,
@@ -54,21 +57,68 @@ def qa_run_api(inputs: QA_Inputs):
         chat_history_dict=inputs.chat_history_dict)
 
     return answer
-    
-# start_scrape api for scraping the url and saving the result into pinecone database
-@app.post("/api/scrape")
-async def scraper_api(inputs: Scraper_Inputs, background_tasks: BackgroundTasks):# Declare the variable as global so we can modify it
 
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(queue_worker())
+
+#debug
+def print_queue(q):
+    temp_list = []
+    while not q.empty():
+        item = q.get()
+        print(item)
+        temp_list.append(item)
+
+    # Put the items back into the queue
+    for item in temp_list:
+        q.put(item)
+
+async def queue_worker():
+    while True:
+        if not task_queue.empty():
+            print("QUEUE ITEMS : ")
+            print_queue(task_queue)
+            print("QUEUE ITEMS END")
+
+            full_url, gptkey = task_queue.get()
+            await qa_scraper.main_async(full_url, gptkey) 
+            task_queue.task_done()
+        await asyncio.sleep(1)  # Sleep for a short duration to prevent busy-waiting
+
+@app.post("/api/scrape")
+async def scraper_api(inputs: Scraper_Inputs):
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
         return {"message": "Invalid Openai API key"}
+    
+    task_queue.put((inputs.full_url, inputs.gptkey))
+    return {"message": "Scrape request added to queue! Check scraping status API for progress."}
 
-    # Try to acquire the lock
-    if qa_scraper.is_running:
-        return {"message": f"Scraper is already running for {qa_scraper.current_url} website, please wait for it to finish."}
-    else:
 
-        background_tasks.add_task(qa_scraper.main, inputs.full_url, inputs.gptkey)
-        return {"message": "Scrape started! Check scraping status API for progress."}
+# generate_response api for checking the status of scraping process
+@app.post("/api/scrape/status")
+def scraper_status_api(inputs: Status_Inputs):
+    status = qa_scraper.scraper_status(inputs.full_url)
+
+    return status
+
+# The api for deleting the index from pinecone database
+@app.post("/api/scrape/delete")
+def delete_index_api(inputs: Status_Inputs):
+    status = qa_scraper.delete_namespace(inputs.full_url)
+
+    return status
+
+@app.exception_handler(Exception)
+async def custom_exception_handler(request: Request, exc: Exception):
+    error_message = traceback.format_exc().splitlines()
+    error_message = [x for x in error_message if x.strip()]
+    error_message = error_message[-1]
+    message = {"answer": "Error! (EXCEPTION HANDLER)", "source_url": None, "success": False, "error_message1": error_message }
+    return JSONResponse(status_code=500, content=message)
+
+
+"""
 
 # start_scrape api for scraping the url and saving the result into pinecone database
 @app.post("/api/pwd")
@@ -94,30 +144,7 @@ async def pwd():
     return {"pwd": pwd, "pwd_items": pwd_items, "parent_items": parent_items, "api_items": api_items}
 
 
-# generate_response api for checking the status of scraping process
-@app.post("/api/scrape/status")
-def scraper_status_api(inputs: Status_Inputs):
-    status = qa_scraper.scraper_status(inputs.full_url)
-
-    return status
-
-# The api for deleting the index from pinecone database
-@app.post("/api/scrape/delete")
-def delete_index_api(inputs: Status_Inputs):
-    status = qa_scraper.delete_namespace(inputs.full_url)
-
-    return status
-
-@app.exception_handler(Exception)
-async def custom_exception_handler(request: Request, exc: Exception):
-    error_message = traceback.format_exc().splitlines()
-    error_message = [x for x in error_message if x.strip()]
-    error_message = error_message[-1]
-    message = {"answer": "Error!", "source_url": None, "success": False, "error_message1": error_message }
-    return JSONResponse(status_code=500, content=message)
-
-
-"""
+    
 @app.get("/qa")
 def generate_response(question: str = Query(..., min_length=1)):
     answer = qa_run.answer_question(df, question=question, debug=False)

@@ -257,7 +257,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
     if is_selenium:
         sleep(10)
 
-    while queue and len(texts) < 200:
+    while queue and len(texts) < 200: #debug
 
         # Get the next URL from the queue
         url = queue.pop()
@@ -658,6 +658,14 @@ def main(full_url: str, gptkey: str) -> None:
     print("Data upsert completed.")
     timer_end = time.time()
     print(f"Time to upload data to pinecone: {format_time(timer_end - timer_start)}")
+
+import concurrent.futures
+import asyncio
+
+async def main_async(full_url: str, gptkey: str) -> None:
+    loop = asyncio.get_event_loop()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        await loop.run_in_executor(executor, main, full_url, gptkey)
 
 def format_time(seconds):
     minutes, seconds = divmod(int(seconds), 60)
