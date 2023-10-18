@@ -257,7 +257,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
     if is_selenium:
         sleep(10)
 
-    while queue and len(texts) < 200: #debug
+    while queue and len(texts) < 500:
 
         # Get the next URL from the queue
         url = queue.pop()
