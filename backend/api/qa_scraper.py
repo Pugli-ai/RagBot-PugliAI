@@ -46,7 +46,7 @@ is_selenium = True
 is_running = False
 current_url = None
 
-url_list_print_option= False
+url_list_print_option= True
 
 # Regex pattern to match a URL
 HTTP_URL_PATTERN = r'^http[s]*://.+'
