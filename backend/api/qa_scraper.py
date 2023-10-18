@@ -257,7 +257,7 @@ def crawl_to_memory(url: str) -> pd.DataFrame:
     if is_selenium:
         sleep(10)
 
-    while queue and len(texts) < 200:
+    while queue and len(texts) < 500:
 
         # Get the next URL from the queue
         url = queue.pop()
@@ -523,29 +523,43 @@ def crawl_deghi() -> pd.DataFrame:
     # Create a Pandas DataFrame
     return pd.DataFrame({"url": headers, "title": headers, "text": bodies})
 
-def scraper_status(full_url: str) -> dict:
+def scraper_status_single_page(full_url: str, queue_list: list) -> dict:
     """
     Check the status of the scraper for a given URL.
 
     Args:
-        full_url (str): URL to check the scraper status for.
+        url_list (list): URL list to check the scraper status for.
+
 
     Returns:
-        dict: Status message and code. 0-> not started, 1-> started, 2-> finished
+        dict: Status message and code. 0-> not started, 1-> queued, 2-> started, 3-> finished
     """
     global is_running, current_url
     try:
+        is_queued= False
+        queue_index = -1
         pinecone_namespace = pinecone_functions.url_to_namespace(full_url)
         
         if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
             pinecone_functions.INDEX = pinecone_functions.retrieve_index()
             result = pinecone_functions.INDEX.fetch(ids=[variables_db.eof_index], namespace=pinecone_namespace)
 
+            for i in range(len(queue_list)):
+                if queue_list[i][0] == full_url:
+                    is_queued=True
+                    queue_index = i
+            
             if is_running and current_url == full_url:
                 message = f"Crawling is started but not finished yet for {full_url}"
-                status_code = 1
-            elif len(result['vectors']) > 0:
+                queue_index=0
                 status_code = 2
+            elif is_queued:
+                queue_index +=1
+                message = f"Crawling is queued in the {queue_index}. order for the {full_url}."
+                status_code = 1
+
+            elif len(result['vectors']) > 0:
+                status_code = 3
                 message = f"Crawling is finished for {full_url}"
             else:
                 status_code = 0
@@ -554,7 +568,7 @@ def scraper_status(full_url: str) -> dict:
             status_code = 0
             message = f"Database is not created yet for {full_url}, please wait a few minutes and try again"
     
-        response = {"status_message" : message, "status_code": status_code}
+        response = {"status_message" : message, "status_code": status_code, "queue_order": queue_index}
         return response
     
     except:
@@ -563,6 +577,13 @@ def scraper_status(full_url: str) -> dict:
         message = traceback.format_exc()
     
     return {"status_message" : message, "status_code": status_code}
+
+def scraper_status_multi_pages(url_list: list, queue_list: list) -> dict:
+    scraper_status_dict = dict()
+    for url in url_list:
+        status = scraper_status_single_page(url, queue_list)
+        scraper_status_dict[url] = status
+    return scraper_status_dict
 
 def delete_namespace(full_url: str) -> None:
     """delete pinecone index if exists
@@ -658,6 +679,14 @@ def main(full_url: str, gptkey: str) -> None:
     print("Data upsert completed.")
     timer_end = time.time()
     print(f"Time to upload data to pinecone: {format_time(timer_end - timer_start)}")
+
+import concurrent.futures
+import asyncio
+
+async def main_async(full_url: str, gptkey: str) -> None:
+    loop = asyncio.get_event_loop()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        await loop.run_in_executor(executor, main, full_url, gptkey)
 
 def format_time(seconds):
     minutes, seconds = divmod(int(seconds), 60)
