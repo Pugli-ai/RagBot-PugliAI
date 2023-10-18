@@ -51,6 +51,12 @@ class Status_Inputs(BaseModel):
 class Delete_Inputs(BaseModel):
     full_url: str
 
+def is_url_in_queue(url):
+    for item in list(task_queue.queue):
+        if url == item[0]:
+            return True
+    return False
+
 @app.post("/api/qa")
 def qa_run_api(inputs: QA_Inputs):
     answer = qa_run.main(
@@ -77,11 +83,16 @@ async def queue_worker():
 ######################################## APIS ########################################
 @app.post("/api/scrape")
 async def scraper_api(inputs: Scraper_Inputs):
+
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
         return {"message": "Invalid Openai API key"}
     
-    task_queue.put((inputs.full_url, inputs.gptkey))
-    return {"message": "Scrape request added to queue! Check scraping status API for progress."}
+    elif is_url_in_queue(inputs.full_url) or qa_scraper.current_url == inputs.full_url:
+        return {"message": "This url is already in the queue!"}
+    
+    else:
+        task_queue.put((inputs.full_url, inputs.gptkey))
+        return {"message": "Scrape request added to queue! Check scraping status API for progress."}
 
 
 # generate_response api for checking the status of scraping process
