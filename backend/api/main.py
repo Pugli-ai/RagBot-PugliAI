@@ -46,6 +46,9 @@ class Scraper_Inputs(BaseModel):
     gptkey: str
 
 class Status_Inputs(BaseModel):
+    url_list: list
+
+class Delete_Inputs(BaseModel):
     full_url: str
 
 @app.post("/api/qa")
@@ -62,30 +65,16 @@ def qa_run_api(inputs: QA_Inputs):
 async def startup_event():
     asyncio.create_task(queue_worker())
 
-#debug
-def print_queue(q):
-    temp_list = []
-    while not q.empty():
-        item = q.get()
-        print(item)
-        temp_list.append(item)
-
-    # Put the items back into the queue
-    for item in temp_list:
-        q.put(item)
-
 async def queue_worker():
     while True:
         if not task_queue.empty():
-            print("QUEUE ITEMS : ")
-            print_queue(task_queue)
-            print("QUEUE ITEMS END")
-
+            print("QUEUE ITEMS : ", list(task_queue.queue))
             full_url, gptkey = task_queue.get()
             await qa_scraper.main_async(full_url, gptkey) 
             task_queue.task_done()
         await asyncio.sleep(1)  # Sleep for a short duration to prevent busy-waiting
 
+######################################## APIS ########################################
 @app.post("/api/scrape")
 async def scraper_api(inputs: Scraper_Inputs):
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
@@ -98,16 +87,21 @@ async def scraper_api(inputs: Scraper_Inputs):
 # generate_response api for checking the status of scraping process
 @app.post("/api/scrape/status")
 def scraper_status_api(inputs: Status_Inputs):
-    status = qa_scraper.scraper_status(inputs.full_url)
-
+    status = qa_scraper.scraper_status_multi_pages(inputs.url_list, list(task_queue.queue))
     return status
 
 # The api for deleting the index from pinecone database
 @app.post("/api/scrape/delete")
-def delete_index_api(inputs: Status_Inputs):
+def delete_index_api(inputs: Delete_Inputs):
     status = qa_scraper.delete_namespace(inputs.full_url)
 
     return status
+
+@app.post("/api/scrape/list_queue")
+def list_queue_api():
+    return list(task_queue.queue)
+
+################################### EXCEPTION HANDLER ###################################
 
 @app.exception_handler(Exception)
 async def custom_exception_handler(request: Request, exc: Exception):
