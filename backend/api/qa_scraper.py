@@ -40,6 +40,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from webdriver_manager.firefox import GeckoDriverManager
 
+import concurrent.futures
+import asyncio
+
 is_outsourceapi= False
 is_selenium = True
 
@@ -679,9 +682,9 @@ def main(full_url: str, gptkey: str) -> None:
     print("Data upsert completed.")
     timer_end = time.time()
     print(f"Time to upload data to pinecone: {format_time(timer_end - timer_start)}")
+    current_url=None
 
-import concurrent.futures
-import asyncio
+
 
 async def main_async(full_url: str, gptkey: str) -> None:
     loop = asyncio.get_event_loop()
