@@ -14,6 +14,7 @@ except ImportError:
     import pinecone_functions
 import json
 from datetime import datetime
+import time
 
 context_print_option= False
 
@@ -106,38 +107,7 @@ def conversation(context: str, question: str, chat_history: str = "", model: str
 
     return response['choices'][0]['message']['content']
 
-def convert_question_to_english(question:str):
-
-    prompt = f"""
-                Convert below text to English, if it is already in English, return the same text. But provide it in a json format like below. The response should be json format otherwise it will not work.
-                {{
-                    "original_text": {question},
-                    "translated_text": "text", 
-                    "original_language": "language"
-                }}
-            """
-    
-
-    response = openai.ChatCompletion.create(
-        messages=[
-            {
-            "role": "user",
-            "content": prompt
-            }
-        ],
-        #prompt=template,
-        temperature=0,
-        max_tokens=1500,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0,
-        stop=None,
-        model="gpt-4",
-    )
-
-    return json.loads(response['choices'][0]['message']['content'])
-
-def conversation_with_langchain(context: str, question: str, chat_history: str = "", model: str = "gpt-4", max_tokens: int = 1500) -> str:
+def conversation_with_langchain(context: str, question: str, chat_history: str = "", model: str = "gpt-3.5-turbo", max_tokens: int = 1500) -> str:
     """
     Generate a conversation based on the provided context and question.
 
@@ -150,17 +120,47 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
     Returns:
         str: The model's response.
     """
-    # Define the template for the conversation.
-    #translation = convert_question_to_english(question)
-    #question = translation['translated_text']
-    #print("question : ", question)
-    #language = translation['original_language']
-    template = """
+
+    template = """# Chatbot Instructions
+    
+    You are a chatbot programmed to provide precise answers to questions by exploring a given webpage and its subpages. Your objective is to parse through the provided context to find the most accurate answer to the question asked. Follow these guidelines to ensure correct behavior:
+
+    ## Guidelines
+    - **Greeting**: Always respond to greeting messages with something like, 'Hi, how can I help you?'
+    - **Language**: Ensure that your answer is in the same language as the question asked.
+    - **JSON Formatting**: Format your response as a JSON object with the root key labeled as 'Response'.
+
+        ```json
+        {{
+            'Response': {{
+                'questions_language': 'language',
+                'answer': 'answer in question\'s language',
+                'source_url': 'source_url'
+            }}
+        }}
+        ```
+
+    - **JSON Readability**: Make sure that the answer is readable using the `json.loads(answer)` Python code. If it's not, it won't be processed correctly.
+    - **Source URL**: If the answer is found in the context, include its source URL. If it's not, set `source_url` to `None`.
+
+    ---
+
+    Context: {context}
+
+    ---
+
+    Chat History: {chat_history}
+
+    ---
+
+    Question: {question}"""
+
+
+    template_old = """
     You are a chatbot seeking precise answers to given questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. If the context contains a direct or related answer, provide it with question's language. If the answer is not present in the context or chat history say "I don't know".
     These are the rules;
     * Always make a respond to greetings messages you can say like "hi how can i help you?".
     * Translate your answer to the question's language.
-    * Format your response as a JSON object. This is too important otherwise it will not work. The root key should be "Response".
     * If the answer in the context provide its source url. You will find it in the context. Otherwise make source url None.
     ---
 
@@ -188,9 +188,46 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
     LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model)
     chatgpt_chain = LLMChain(llm=LLM, prompt=prompt, verbose=False)
     answer = chatgpt_chain.predict(context=context, chat_history=chat_history, question=question)
+    # print("########################################################")
+    # print("ANSWER: ")
+    # print(answer)
+    # print("########################################################")
+    try:
+        answer_json = json.loads(answer)
+        
+    except:
+        print("JSON IS BROKEN FOR THE FIRST REQUEST, NOW TRYING TO FIX IT WITH ANOTHER CHATGPT REQUEST")
+        answer_json = fix_json_with_langchain(answer, model=model, max_tokens=max_tokens)
+
+    return answer_json['Response']
+
+def fix_json_with_langchain(broken_json: str, model: str = "gpt-3.5-turbo", max_tokens: int = 1500) -> str:
+    """ this method for fixing the broken json with langchain
+
+    Args:
+        broken_json_input (str): _description_
+        model (str, optional): _description_. Defaults to "gpt-3.5-turbo".
+        max_tokens (int, optional): _description_. Defaults to 1500.
+
+    Returns:
+        str: fixed json
+    """
+    template = """I have a corrupted json as below and i am failing to read it with this line of code, can you fix the. json and provide me the fixed one without typing any other explaination. Because i will copy your response and it should only include the fixed json string:
+    ```python
+    json.loads(broken_json)
+    ```
+    ---
+    Broken JSON:
+    {broken_json}
+    """
+    prompt = PromptTemplate(input_variables=["broken_json"], template=template)
+    LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model)
+    chatgpt_chain = LLMChain(llm=LLM, prompt=prompt, verbose=False)
+    answer = chatgpt_chain.predict(broken_json=broken_json)
+
     answer_json = json.loads(answer)
     
-    return answer_json['Response']
+    return answer_json
 
 def handle_exception(e: Exception) -> dict:
     """
@@ -220,14 +257,20 @@ def answer_question(question: str, pinecone_namespace: str, chat_history: str = 
         dict: A dictionary containing the answer, source URL, success status, and error message (if any).
     """
     global context_print_option
+    context_time_start = time.time()
     context = create_context(question, pinecone_namespace)
+    context_time_end = time.time()
+    print("context_create_time : ", context_time_end - context_time_start)
     if context_print_option:
         print("########################################################")
         print("content : ", context)
         print("########################################################")
 
     try:
+        conversation_time_start = time.time()
         answer_json = conversation_with_langchain(context, question, chat_history = chat_history)
+        conversation_time_end = time.time()
+        print("conversation_time : ", conversation_time_end - conversation_time_start)
         answer = answer_json['answer']
         source_url = answer_json['source_url']
         #print("Answer: ", answer)
@@ -321,12 +364,12 @@ init()
 
 if __name__ == "__main__":
 
-    #full_url = "https://www.deghi.it/supporto/"
+    full_url = "https://www.deghi.it/supporto/"
     #full_url= "https://gethelp.tiledesk.com/"
     #full_url = "https://docs.pinecone.io/"
 
     #full_url = "https://knowledge.webafrica.co.za"
-    full_url = "https://aulab.it/"
+    #full_url = "https://aulab.it/"
     #full_url = "https://ecobaby.it/"
     #full_url = "https://lineaamica.gov.it/" # TRY IT LONGER
     #full_url = "http://cairorcsmedia.it/"
@@ -338,6 +381,7 @@ if __name__ == "__main__":
 
     if full_url == "https://gethelp.tiledesk.com/":
         question_list = [
+                        "how can I connect tiledesk to WhatsApp?",
                         "What is tiledesk?",
                         "What day is it?",
                         "which javascript code should i copy and paste for installing the widget on my website ? please write me that javascript code",

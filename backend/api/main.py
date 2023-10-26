@@ -11,6 +11,7 @@ from api import pinecone_functions
 import os
 from queue import Queue
 import asyncio
+import time
 
 
 
@@ -59,12 +60,14 @@ def is_url_in_queue(url):
 
 @app.post("/api/qa")
 def qa_run_api(inputs: QA_Inputs):
+    api_timer_start = time.time()
     answer = qa_run.main(
         question=inputs.question,
         openai_api_key=inputs.gptkey,
         full_url=inputs.kbid,
         chat_history_dict=inputs.chat_history_dict)
-
+    api_timer_end = time.time()
+    print("API TIME : ", api_timer_end - api_timer_start)
     return answer
 
 @app.on_event("startup")
