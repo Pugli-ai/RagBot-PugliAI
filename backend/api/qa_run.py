@@ -614,5 +614,4 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
         }}
     }}
     """
-
 '''
