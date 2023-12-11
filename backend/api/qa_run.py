@@ -178,9 +178,9 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
 
     ## Guidelines
     - **Greeting**: Always respond to greeting messages with something like, 'Hi, how can I help you?'
-    - **Language**: Ensure that your answer is in the same language as the question asked.
     - **Source**: If the answer is found in the context, set its source. If source is empty not, set `source` to `None`. if the source is url set it as url, if it is a file set it as file name.
     - **Answer**: Your only knowledgebase is the context and chat history. If the answer is not present in the context or chat history say "I don't know".
+    - **Language**: Ensure that your answer is in the same language as the question. Always translate your answer to the question's language.
 
     ---
 
