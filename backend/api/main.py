@@ -36,15 +36,9 @@ app.add_middleware(
 async def root():
     return {"message": "Ciao Mondo"}
 
-class QA_Inputs(BaseModel):
-    question: str
-    gptkey :str
-    kbid : str
-    chat_history_dict: dict = {}
 
-class Scraper_Inputs(BaseModel):
-    full_url: str
-    gptkey: str
+
+
 
 class Status_Inputs(BaseModel):
     url_list: list
@@ -58,6 +52,51 @@ def is_url_in_queue(url):
             return True
     return False
 
+
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(queue_worker())
+
+async def queue_worker():
+    while True:
+        if not task_queue.empty():
+            print("QUEUE ITEMS : ", list(task_queue.queue))
+            full_url, gptkey, namespace = task_queue.get()
+            await qa_scraper.main_async(full_url, gptkey, namespace) 
+            task_queue.task_done()
+        await asyncio.sleep(1)  # Sleep for a short duration to prevent busy-waiting
+
+
+######################################################################################
+######################################## APIS ########################################
+######################################################################################
+
+### API for scraping a single page
+class ScrapeSingleInputs(BaseModel):
+    id: str # id of the single content
+    content: str # content of the single content
+    source: str # source of the single content (it can be url or a file name)
+    type: str # “url | text”
+    gptkey: str # "GPT-KEY"
+    namespace: str # a generic alfa-num value (UUID etc.) passed on each query
+    is_tree : str = "False" # if true, the content is a tree of contents (e.g. a websites)
+
+@app.post("/scrape/single")
+def scrape_single_api(inputs: ScrapeSingleInputs):
+    if not pinecone_functions.is_api_key_valid(inputs.gptkey):
+        return {"message": "Invalid Openai API key"}
+    else:
+        status = qa_scraper.scrape_single(inputs.id, inputs.content, inputs.source, inputs.type, inputs.gptkey, inputs.namespace, inputs.is_tree)
+        return status
+
+## API for QA
+class QA_Inputs(BaseModel):
+    question: str
+    gptkey :str
+    kbid : str
+    chat_history_dict: dict = {}
+
 @app.post("/api/qa")
 def qa_run_api(inputs: QA_Inputs):
     api_timer_start = time.time()
@@ -70,20 +109,12 @@ def qa_run_api(inputs: QA_Inputs):
     print("API TIME : ", api_timer_end - api_timer_start)
     return answer
 
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(queue_worker())
+## API for scraping a tree of pages
+class Scraper_Inputs(BaseModel):
+    full_url: str
+    gptkey: str
+    namespace: str
 
-async def queue_worker():
-    while True:
-        if not task_queue.empty():
-            print("QUEUE ITEMS : ", list(task_queue.queue))
-            full_url, gptkey = task_queue.get()
-            await qa_scraper.main_async(full_url, gptkey) 
-            task_queue.task_done()
-        await asyncio.sleep(1)  # Sleep for a short duration to prevent busy-waiting
-
-######################################## APIS ########################################
 @app.post("/api/scrape")
 async def scraper_api(inputs: Scraper_Inputs):
 
@@ -94,8 +125,12 @@ async def scraper_api(inputs: Scraper_Inputs):
         return {"message": "This url is already in the queue!"}
     
     else:
-        task_queue.put((inputs.full_url, inputs.gptkey))
+        task_queue.put((inputs.full_url, inputs.gptkey, inputs.namespace))
         return {"message": "Scrape request added to queue! Check scraping status API for progress."}
+
+
+######################################## OLD APIS ########################################
+
 
 
 # generate_response api for checking the status of scraping process

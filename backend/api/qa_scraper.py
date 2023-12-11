@@ -463,8 +463,10 @@ def convertdf2_pineconetype(df: pd.DataFrame) -> pd.DataFrame:
     """
     datas = []
     for row in df.itertuples():
-        metadata = {'url': row.url, 'n_tokens': row.n_tokens, 'text': row.text}
-        data = {'id': row.url.encode("ascii", "ignore").decode(), 'values': row.embeddings, 'metadata': metadata}
+        id = row.url.encode("ascii", "ignore").decode()
+        metadata = {"id": id, "type": 'url', "source": row.url, "is_tree": 'True', "n_tokens": row.n_tokens, "content": row.text}
+        #metadata = {'url': row.url, 'n_tokens': row.n_tokens, 'text': row.text}
+        data = {'id': id, 'values': row.embeddings, 'metadata': metadata}
         datas.append(data)
     return pd.DataFrame(datas)
 
@@ -537,7 +539,7 @@ def scraper_status_single_page(full_url: str, queue_list: list) -> dict:
     Returns:
         dict: Status message and code. 0-> not started, 1-> queued, 2-> started, 3-> finished
     """
-    global is_running, current_url
+    global is_running
     try:
         is_queued= False
         queue_index = -1
@@ -609,23 +611,100 @@ def delete_namespace(full_url: str) -> None:
     else:
         response = {"success": False, "message": f"{full_url} is not in database"}
     return response
-def main(full_url: str, gptkey: str) -> None:
+
+
+######################################################################################
+######################################## Scrape Single ########################################
+######################################################################################
+def scrape_single_url_content(url: str) -> str:
+    """_summary_
+
+    Args:
+        url (str): _description_
+
+    Returns:
+        str: _description_
+    """
+    firefox_options = FirefoxOptions()
+    firefox_options.add_argument('--headless')  # Uncomment to run headless
+    firefox_options.add_argument("--log-level=3")
+
+    driver = webdriver.Firefox(service=Service(executable_path="/geckodriver"), options=firefox_options)
+    sleep(1)
+    driver.get(url)
+    sleep(6)
+    if not url.endswith("/"):
+        url += "/"
+    url = url.replace('%2F%2F%2F', '')
+    clean_url = url[:-1] if url.endswith("/") else url
+    if any(clean_url.endswith(ext) for ext in variables_db.avoid_extensions):
+        print("Page skipped:  " + url + " due to extension")
+        print("returning None")
+        return None
+    text = driver.find_element(By.TAG_NAME, 'body').text
+    driver.quit()
+    # If the crawler gets to a page that requires JavaScript, it will stop the crawl
+    if ("You need to enable JavaScript to run this app." in text):
+        print("Unable to parse page " + url + " due to JavaScript being required")
+        print("Returning None")
+        return None
+    return text
+
+        
+def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, namespace: str, is_tree: str) -> dict:
+    try :
+        variables_db.OPENAI_API_KEY = gptkey
+        os.environ['OPENAI_API_KEY'] = openai.api_key
+        max_tokens = 7500
+
+        if type == "url":
+            text = scrape_single_url_content(source)
+        else:
+            text = content
+        text = "source: " + source + " \n" + text
+        
+        # remove new lines
+        text = text.replace('\n', ' ')
+        text = text.replace('\\n', ' ')
+        text = re.sub(' +', ' ', text)
+
+        tokenizer = tiktoken.get_encoding("cl100k_base")
+        n_tokens = len(tokenizer.encode(text))
+        print("N_TOKENS: ", n_tokens)
+        if n_tokens > max_tokens:
+            text = split_into_many(source, text, tokenizer=tokenizer, max_tokens=max_tokens)[0][1]
+        embedding = openai.Embedding.create(input=text, engine='text-embedding-ada-002')['data'][0]['embedding']
+        dimension = len(embedding)
+        print("DIMENSION: ", dimension)
+        metadata = {"id": id, "type": type, "source": source, "is_tree": is_tree, "n_tokens": n_tokens, "content": text}
+        pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+        pinecone_functions.INDEX.upsert([{'id': id, 'values': embedding, 'metadata': metadata}], namespace=namespace)
+    
+        return {"success": True, "message": "Data upsert completed."}
+    except Exception as e:
+        error_message = traceback.format_exc()
+        print(error_message)
+        return {"success": False, "message": error_message}
+    
+
+def main(full_url: str, gptkey: str, namespace: str) -> None:
     """
     Main function to start the scraping process.
 
     Args:
         full_url (str): URL to scrape.
         gptkey (str): OpenAI API key.
+        namespace (str): Namespace to use for Pinecone.
     """
-    global is_running, current_url
+    global is_running, current_url  
     try:
         is_running = True
         current_url = full_url
         timer_start = time.time()
         variables_db.OPENAI_API_KEY = gptkey
-        full_url, domain = pinecone_functions.get_domain_and_url(full_url)
+        full_url, _ = pinecone_functions.get_domain_and_url(full_url)
 
-        pinecone_namespace = pinecone_functions.url_to_namespace(full_url)
+        pinecone_namespace = namespace
         print('pinecone_namespace: ', pinecone_namespace)
         #variables_db.PINECONE_INDEX_NAME = index_name
 
@@ -686,10 +765,10 @@ def main(full_url: str, gptkey: str) -> None:
 
 
 
-async def main_async(full_url: str, gptkey: str) -> None:
+async def main_async(full_url: str, gptkey: str, namespace: str) -> None:
     loop = asyncio.get_event_loop()
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        await loop.run_in_executor(executor, main, full_url, gptkey)
+        await loop.run_in_executor(executor, main, full_url, gptkey, namespace)
 
 def format_time(seconds):
     minutes, seconds = divmod(int(seconds), 60)
@@ -709,6 +788,14 @@ def format_time(seconds):
         time_str += "0sec"
 
     return time_str
+
+
+    
+
+
+    
+      
+
 
 ########################################################################################################################################################
 ########################################################################################################################################################

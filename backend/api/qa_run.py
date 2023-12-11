@@ -21,23 +21,62 @@ from langchain.chat_models import ChatOpenAI
 from langchain.output_parsers import ResponseSchema
 from langchain.output_parsers import StructuredOutputParser
 
-context_print_option= False
+import tiktoken
 
+context_print_option= False
+max_tokens = 4097 - 317
 ########################################################### CHILD FUNCTIONS ###########################################################
 #######################################################################################################################################
+def compute_token_size(text: str) -> int:
+    """
+    Compute the number of tokens in a string using OpenAI's tokenizer.
 
-def create_context(question: str, pinecone_namespace: str, top_k: int = 5, max_len: int = 1800) -> tuple:
+    Args:
+        text (str): The text to be tokenized.
+
+    Returns:
+        int: The number of tokens in the text.
+    """
+    # Ensure that you have set your OpenAI API key
+    # openai.api_key = 'your-api-key'
+
+    # Use the GPT tokenizer to tokenize the text
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+    return len(tokenizer.encode(text))
+
+def truncate_text(text, max_length):
+    """
+    Truncate the text to the specified max_length.
+    
+    Args:
+        text (str): The text to be truncated.
+        max_length (int): The maximum length of the text.
+
+    Returns:
+        str: The truncated text.
+    """
+    # Split the text into words and rebuild it up to the max_length
+    words = text.split()
+    truncated_text = ""
+    total_length = 0
+    for word in words:
+        total_length += len(word) + 1  # +1 for space
+        if total_length > max_length:
+            break
+        truncated_text += word + " "
+    return truncated_text.strip()
+
+def create_context(question: str, pinecone_namespace: str, top_k: int = 5) -> tuple:
     """
     Create a context for the given question using embeddings.
 
     Args:
         question (str): The question for which context is needed.
-        top_k (int, optional): Number of top matches to consider. Defaults to 3.
-        max_len (int, optional): Maximum length of the context. Defaults to 1800.
-
+        top_k (int, optional): Number of top matches to consider. Defaults to 5.
     Returns:
-        tuple: A tuple containing the context and the source URL.
+        tuple: A tuple containing the context and the source.
     """
+    global max_tokens
     # Generate embeddings for the question.
     q_embeddings = openai.Embedding.create(input=question, engine='text-embedding-ada-002')['data'][0]['embedding']
     
@@ -51,12 +90,16 @@ def create_context(question: str, pinecone_namespace: str, top_k: int = 5, max_l
     texts = []
     cur_len = 0
     for result in results['matches']:
-        cur_len += result['metadata']['n_tokens'] + 4
-        if cur_len > max_len:
+        text = result['metadata']['content']
+        n_tokens = result['metadata']['n_tokens']
+        # Truncate the text if it exceeds max_tokens
+        if n_tokens > max_tokens:
+            text = truncate_text(text, max_tokens-4)
+            n_tokens = max_tokens-4
+        cur_len += n_tokens + 4  # +4 for separators
+        if cur_len > max_tokens:
             break
-        texts.append(result['metadata']['text'])
-    
-    #source_url = results['matches'][0]['metadata']['url']
+        texts.append(text)
     
     return "\n\n###\n\n".join(texts)
 
@@ -113,7 +156,7 @@ def conversation(context: str, question: str, chat_history: str = "", model: str
     return response['choices'][0]['message']['content']
 
 
-def conversation_with_langchain(context: str, question: str, chat_history: str = "", model: str = "gpt-3.5-turbo", max_tokens: int = 1500) -> str:
+def conversation_with_langchain(context: str, question: str, chat_history: str = "", model: str = "gpt-3.5-turbo") -> str:
     """
     Generate a conversation based on the provided context and question.
 
@@ -127,6 +170,8 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
         dict: The model's response, as dictionary.
     """
 
+    global max_tokens
+
     template_string = """# Chatbot Instructions
     
     You are a chatbot programmed to provide precise answers to questions by exploring a given webpage and its subpages. Your objective is to parse through the provided context to find the most accurate answer to the question asked. Follow these guidelines to ensure correct behavior:
@@ -134,7 +179,8 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
     ## Guidelines
     - **Greeting**: Always respond to greeting messages with something like, 'Hi, how can I help you?'
     - **Language**: Ensure that your answer is in the same language as the question asked.
-    - **Source URL**: If the answer is found in the context, include its source URL. If it's not, set `source_url` to `None`.
+    - **Source**: If the answer is found in the context, set its source. If source is empty not, set `source` to `None`. if the source is url set it as url, if it is a file set it as file name.
+    - **Answer**: Your only knowledgebase is the context and chat history. If the answer is not present in the context or chat history say "I don't know".
 
     ---
 
@@ -150,13 +196,13 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
 
     format_instructions : ```{format_instructions}```
     """
-
-    LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model, verbose=True)
+    context_n_token = compute_token_size(context)
+    LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens-context_n_token, model=model, verbose=True)
     # Define the response schemas for structured output
     response_schemas = [
         ResponseSchema(name="questions_language", description="The language of the question."),
         ResponseSchema(name="answer", description="The answer to the question."),
-        ResponseSchema(name="source_url", description="The source URL of the answer.")
+        ResponseSchema(name="source", description="The source of the answer.")
     ]
     
     output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
@@ -181,7 +227,7 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
     return parsed_response
 
 
-def fix_json_with_langchain(broken_json: str, model: str = "gpt-3.5-turbo", max_tokens: int = 1500) -> str:
+def fix_json_with_langchain(broken_json: str, model: str = "gpt-3.5-turbo", max_tokens: int = 8000) -> str:
     """ this method for fixing the broken json with langchain
 
     Args:
@@ -222,7 +268,7 @@ def handle_exception(e: Exception) -> dict:
     error_message = traceback.format_exc().splitlines()
     error_message = [x for x in error_message if x.strip()]
     
-    return {"answer": "Error!", "source_url": None, "success": False, "error_message": error_message[-1]}
+    return {"answer": "Error!", "source": None, "success": False, "error_message": error_message[-1]}
 
 def answer_question(question: str, pinecone_namespace: str, chat_history: str = "") -> dict:
     """
@@ -234,11 +280,12 @@ def answer_question(question: str, pinecone_namespace: str, chat_history: str = 
         max_tokens (int, optional): Maximum tokens for the response. Defaults to 1500.
 
     Returns:
-        dict: A dictionary containing the answer, source URL, success status, and error message (if any).
+        dict: A dictionary containing the answer, source, success status, and error message (if any).
     """
     global context_print_option
     context_time_start = time.time()
     context = create_context(question, pinecone_namespace)
+    print("Context token size: ", compute_token_size(context))
     context_time_end = time.time()
     print("context_create_time : ", context_time_end - context_time_start)
     if context_print_option:
@@ -252,11 +299,11 @@ def answer_question(question: str, pinecone_namespace: str, chat_history: str = 
         conversation_time_end = time.time()
         print("conversation_time : ", conversation_time_end - conversation_time_start)
         answer = answer_json['answer']
-        source_url = answer_json['source_url']
+        source = answer_json['source']
         #print("Answer: ", answer)
-        source_url = None if source_url == "None" else source_url
-        success = True if source_url else False
-        return {"answer": answer, "source_url": source_url, "success": success, "error_message": None}
+        source = None if source == "None" else source
+        success = True if source else False
+        return {"answer": answer, "source": source, "success": success, "error_message": None}
 
     except Exception as e:
         traceback.print_exc()
@@ -301,7 +348,7 @@ def main(question: str, openai_api_key: str, full_url: str, chat_history_dict:di
         chat_history_dict(dict): The chat history of the conversation.
 
     Returns:
-        dict: A dictionary containing the answer, source URL, success status, and error message (if any).
+        dict: A dictionary containing the answer, source, success status, and error message (if any).
     """
     try:
         #print datetime with date
@@ -327,9 +374,9 @@ def main(question: str, openai_api_key: str, full_url: str, chat_history_dict:di
                 chat_history = create_chat_history_string(chat_history_dict)
                 response = answer_question(question=question, pinecone_namespace=pinecone_namespace, chat_history = chat_history)
             else:
-                response = {"answer": "Error!", "source_url": None, "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {full_url}"}
+                response = {"answer": "Error!", "source": None, "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {full_url}"}
         else:
-            response = {"answer": "Error!", "source_url": None, "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {full_url}"}          
+            response = {"answer": "Error!", "source": None, "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {full_url}"}          
 
         print(f"{datetime_now} : Response: ", response)
         return response
@@ -338,14 +385,14 @@ def main(question: str, openai_api_key: str, full_url: str, chat_history_dict:di
     except Exception as e:
         traceback.print_exc()
         error_message = traceback.format_exc()
-        return {"answer": "Error!", "source_url": None, "success": False, "error_message": error_message}          
+        return {"answer": "Error!", "source": None, "success": False, "error_message": error_message}          
 
 init()
 
 if __name__ == "__main__":
 
     #full_url = "https://www.deghi.it/supporto/"
-    full_url= "https://gethelp.tiledesk.com/"
+    #full_url= "https://gethelp.tiledesk.com/"
     #full_url = "https://docs.pinecone.io/"
 
     #full_url = "https://knowledge.webafrica.co.za"
@@ -358,7 +405,17 @@ if __name__ == "__main__":
     #full_url = "http://iostudiocongeco.it/"
     #full_url = "https://www.postpickr.com/"
     #full_url = "https://www.loloballerina.com/"
+    full_url = "temp-namespace"
 
+    if full_url == "temp-namespace":
+        question_list = [
+                        #"who is Mustafa Kemal ?",
+                        "what are the pricing for tiledesk?",
+        ]
+
+        for question in question_list:
+            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        
     if full_url == "https://gethelp.tiledesk.com/":
         question_list = [
         "How can I connect Tiledesk to WhatsApp?",
@@ -549,13 +606,13 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
             'Response': {{
                 'questions_language': 'language',
                 'answer': 'answer in question\'s language',
-                'source_url': 'source_url'
+                'source': 'source'
             }}
         }}
         ```
 
     - **JSON Readability**: Make sure that the answer is readable using the `json.loads(answer)` Python code. If it's not, it won't be processed correctly.
-    - **Source URL**: If the answer is found in the context, include its source URL. If it's not, set `source_url` to `None`.
+    - **Source URL**: If the answer is found in the context, include its source URL. If it's not, set `source` to `None`.
 
     ---
 
@@ -610,7 +667,7 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
         {{
         "questions_language" : "language",
         "answer": "answer in question's language",
-        "source_url": "source_url"
+        "source": "source"
         }}
     }}
     """
