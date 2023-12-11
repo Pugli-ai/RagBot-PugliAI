@@ -94,7 +94,7 @@ def scrape_single_api(inputs: ScrapeSingleInputs):
 class QA_Inputs(BaseModel):
     question: str
     gptkey :str
-    kbid : str
+    namespace : str
     chat_history_dict: dict = {}
 
 @app.post("/api/qa")
@@ -103,7 +103,7 @@ def qa_run_api(inputs: QA_Inputs):
     answer = qa_run.main(
         question=inputs.question,
         openai_api_key=inputs.gptkey,
-        full_url=inputs.kbid,
+        namespace=inputs.namespace,
         chat_history_dict=inputs.chat_history_dict)
     api_timer_end = time.time()
     print("API TIME : ", api_timer_end - api_timer_start)

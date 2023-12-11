@@ -337,14 +337,14 @@ def init() -> None:
     
 ############################################################ MAIN FUNCTION ############################################################
 #######################################################################################################################################
-def main(question: str, openai_api_key: str, full_url: str, chat_history_dict:dict = dict()) -> dict:
+def main(question: str, openai_api_key: str, namespace: str, chat_history_dict:dict = dict()) -> dict:
     """
     Main function to answer a question based on the most relevant context from a database.
 
     Args:
         question (str): The question to be answered.
         openai_api_key (str): The API key for OpenAI.
-        full_url (str): The namespace of the website on Pinecone database.
+        namespace (str): The namespace of the website on Pinecone database.
         chat_history_dict(dict): The chat history of the conversation.
 
     Returns:
@@ -363,7 +363,7 @@ def main(question: str, openai_api_key: str, full_url: str, chat_history_dict:di
             os.environ['OPENAI_API_KEY'] = openai.api_key
         
         # Convert the URL to a Pinecone index name.
-        pinecone_namespace = pinecone_functions.url_to_namespace(full_url)
+        pinecone_namespace = namespace
 
         if pinecone_functions.is_db_exists():
             # Check and update the Pinecone index if necessary.
@@ -374,9 +374,9 @@ def main(question: str, openai_api_key: str, full_url: str, chat_history_dict:di
                 chat_history = create_chat_history_string(chat_history_dict)
                 response = answer_question(question=question, pinecone_namespace=pinecone_namespace, chat_history = chat_history)
             else:
-                response = {"answer": "Error!", "source": None, "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {full_url}"}
+                response = {"answer": "Error!", "source": None, "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {pinecone_namespace}"}
         else:
-            response = {"answer": "Error!", "source": None, "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {full_url}"}          
+            response = {"answer": "Error!", "source": None, "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {pinecone_namespace}"}          
 
         print(f"{datetime_now} : Response: ", response)
         return response
