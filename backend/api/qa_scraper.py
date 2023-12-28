@@ -51,6 +51,8 @@ current_url = None
 
 url_list_print_option= True
 
+scraper_status_single_task_list = []
+
 # Regex pattern to match a URL
 HTTP_URL_PATTERN = r'^http[s]*://.+'
 
@@ -537,7 +539,7 @@ def scraper_status_single_page(full_url: str, queue_list: list) -> dict:
 
 
     Returns:
-        dict: Status message and code. 0-> not started, 1-> queued, 2-> started, 3-> finished
+        dict: Status message and code. 0-> not started, 1-> queued, 2-> started, 3-> finished 4-> error
     """
     global is_running
     try:
@@ -578,10 +580,10 @@ def scraper_status_single_page(full_url: str, queue_list: list) -> dict:
     
     except:
         traceback.print_exc()
-        status_code = 0
+        status_code = 4
         message = traceback.format_exc()
     
-    return {"status_message" : message, "status_code": status_code}
+    return {"status_message" : message, "status_code": status_code, "queue_order": -1}
 
 def scraper_status_multi_pages(url_list: list, queue_list: list) -> dict:
     scraper_status_dict = dict()
@@ -590,13 +592,13 @@ def scraper_status_multi_pages(url_list: list, queue_list: list) -> dict:
         scraper_status_dict[url] = status
     return scraper_status_dict
 
-def delete_namespace(full_url: str) -> None:
-    """delete pinecone index if exists
+def delete_namespace(namespace: str) -> None:
+    """delete pinecone namespace if exists
 
     Args:
-        full_url (str): _description_
+        namespace (str): _description_
     """
-    pinecone_namespace = pinecone_functions.url_to_namespace(full_url)
+    pinecone_namespace = pinecone_functions.url_to_namespace(namespace)
 
     # Check if there is an index with that name in pinecone
     if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
@@ -605,11 +607,58 @@ def delete_namespace(full_url: str) -> None:
         namespaces = list(index_stats['namespaces'].keys())
         if pinecone_namespace in namespaces:
             pinecone_functions.INDEX.delete(delete_all=True, namespace=pinecone_namespace)
-            response = {"success": True, "message": f"{full_url} is deleted from database"}
+            response = {"success": True, "message": f"{namespace} is deleted from database"}
         else:
-            response = {"success": False, "message": f"{full_url} is not in database"}
+            response = {"success": False, "message": f"{namespace} is not in database"}
     else:
-        response = {"success": False, "message": f"{full_url} is not in database"}
+        response = {"success": False, "message": f"{namespace} is not in database"}
+    return response
+
+def delete_with_id(id: str, namespace: str) -> None:
+    """This method will delete the single row from pinecone
+
+    Args:
+        id (str): _description_
+        namespace (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
+        pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+        pinecone_functions.INDEX.delete(ids=[id], namespace=namespace)
+        response = {"success": True, "message": f"{id} is deleted from database"}
+    else:
+        response = {"success": False, "message": "Database is not exist"}
+    return response
+
+def list_namespace_content(namespace: str) -> dict:
+    """_summary_
+
+    Args:
+        namespace (str): _description_
+
+    Returns:
+        dict: _description_
+    """
+    if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
+        pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+        index_stats = pinecone_functions.INDEX.describe_index_stats()
+        namespaces = list(index_stats['namespaces'].keys())
+        if namespace in namespaces:
+            namespace_content = pinecone_functions.INDEX.query(
+            namespace=namespace,
+            vector=[0.0] * index_stats['dimension'],
+            top_k=10000,
+            include_metadata=True)["matches"]
+            result_dict = {}
+            for match in namespace_content:
+                result_dict[match["id"]] = match["metadata"]
+            response = {"success": True, "message": result_dict}
+        else:
+            response = {"success": False, "message": f"{namespace} is not in database"}
+    else:
+        response = {"success": False, "message": "Database is not exist"}
     return response
 
 
@@ -652,7 +701,9 @@ def scrape_single_url_content(url: str) -> str:
 
         
 def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, namespace: str, is_tree: str) -> dict:
+    global scraper_status_single_task_list
     try :
+        scraper_status_single_task_list.append(id)
         variables_db.OPENAI_API_KEY = gptkey
         os.environ['OPENAI_API_KEY'] = openai.api_key
         max_tokens = 7500
@@ -679,13 +730,55 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
         metadata = {"id": id, "type": type, "source": source, "is_tree": is_tree, "n_tokens": n_tokens, "content": text}
         pinecone_functions.INDEX = pinecone_functions.retrieve_index()
         pinecone_functions.INDEX.upsert([{'id': id, 'values': embedding, 'metadata': metadata}], namespace=namespace)
-    
+        scraper_status_single_task_list.remove(id)
         return {"success": True, "message": "Data upsert completed."}
     except Exception as e:
+        scraper_status_single_task_list.remove(id)
         error_message = traceback.format_exc()
         print(error_message)
         return {"success": False, "message": error_message}
     
+def scraper_status_single(namespace: str, id: str) -> dict:
+    """status of single row
+    status_code: 0-> not started, 1-> queued (not in this), 2-> started, 3-> finished, 4-> error
+
+    Args:
+        id (str): _description_
+        namespace (str): _description_
+
+    Returns:
+        dict: _description_
+    """
+    queue_index = -1
+    try:
+        if id in scraper_status_single_task_list:
+            message = f"Crawling is started but not finished yet for id: {id}"
+            status_code = 2
+        elif variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
+            pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+            result = pinecone_functions.INDEX.fetch(ids=[id], namespace=namespace)
+            if len(result['vectors']) > 0:
+                status_code = 3
+                message = f"Crawling is finished for id: {id}"
+            else:
+                status_code = 0
+                message = f"crawling is not started for id: {id}"
+        else:
+            status_code = 0
+            message = f"Database is not created yet, please wait a few minutes and try again (id: {id})"
+        return {"status_message" : message, "status_code": status_code, "queue_order": queue_index}
+    except:
+        traceback.print_exc()
+        status_code = 4
+        message = traceback.format_exc()
+        message = f"(id: {id}) " + message
+        return {"status_message" : message, "status_code": status_code, "queue_order": queue_index}
+
+
+             
+        
+
+
 
 def main(full_url: str, gptkey: str, namespace: str) -> None:
     """

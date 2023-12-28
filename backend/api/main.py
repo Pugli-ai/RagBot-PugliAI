@@ -20,7 +20,7 @@ class ErrorResponse(BaseModel):
 
 
 app = FastAPI()
-task_queue = Queue()
+scraper_tree_queue = Queue()
 
 origins = ["*"]
 
@@ -36,23 +36,11 @@ app.add_middleware(
 async def root():
     return {"message": "Ciao Mondo"}
 
-
-
-
-
-class Status_Inputs(BaseModel):
-    url_list: list
-
-class Delete_Inputs(BaseModel):
-    full_url: str
-
 def is_url_in_queue(url):
-    for item in list(task_queue.queue):
+    for item in list(scraper_tree_queue.queue):
         if url == item[0]:
             return True
     return False
-
-
 
 @app.on_event("startup")
 async def startup_event():
@@ -60,13 +48,12 @@ async def startup_event():
 
 async def queue_worker():
     while True:
-        if not task_queue.empty():
-            print("QUEUE ITEMS : ", list(task_queue.queue))
-            full_url, gptkey, namespace = task_queue.get()
+        if not scraper_tree_queue.empty():
+            print("QUEUE ITEMS : ", list(scraper_tree_queue.queue))
+            full_url, gptkey, namespace = scraper_tree_queue.get()
             await qa_scraper.main_async(full_url, gptkey, namespace) 
-            task_queue.task_done()
+            scraper_tree_queue.task_done()
         await asyncio.sleep(1)  # Sleep for a short duration to prevent busy-waiting
-
 
 ######################################################################################
 ######################################## APIS ########################################
@@ -82,13 +69,14 @@ class ScrapeSingleInputs(BaseModel):
     namespace: str # a generic alfa-num value (UUID etc.) passed on each query
     is_tree : str = "False" # if true, the content is a tree of contents (e.g. a websites)
 
-@app.post("/scrape/single")
-def scrape_single_api(inputs: ScrapeSingleInputs):
+@app.post("/api/scrape/single")
+async def scrape_single_api(inputs: ScrapeSingleInputs, background_tasks: BackgroundTasks):
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
         return {"message": "Invalid Openai API key"}
     else:
-        status = qa_scraper.scrape_single(inputs.id, inputs.content, inputs.source, inputs.type, inputs.gptkey, inputs.namespace, inputs.is_tree)
-        return status
+        background_tasks.add_task(qa_scraper.scrape_single, inputs.id, inputs.content, inputs.source, inputs.type, inputs.gptkey, inputs.namespace, inputs.is_tree)
+        #status = qa_scraper.scrape_single(inputs.id, inputs.content, inputs.source, inputs.type, inputs.gptkey, inputs.namespace, inputs.is_tree)
+        return {"message": "Scrape request added to queue! Check scraping status API for progress."}
 
 ## API for QA
 class QA_Inputs(BaseModel):
@@ -115,8 +103,8 @@ class Scraper_Inputs(BaseModel):
     gptkey: str
     namespace: str
 
-@app.post("/api/scrape")
-async def scraper_api(inputs: Scraper_Inputs):
+@app.post("/api/scrape/tree")
+async def scraper_tree_api(inputs: Scraper_Inputs):
 
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
         return {"message": "Invalid Openai API key"}
@@ -125,30 +113,55 @@ async def scraper_api(inputs: Scraper_Inputs):
         return {"message": "This url is already in the queue!"}
     
     else:
-        task_queue.put((inputs.full_url, inputs.gptkey, inputs.namespace))
+        scraper_tree_queue.put((inputs.full_url, inputs.gptkey, inputs.namespace))
         return {"message": "Scrape request added to queue! Check scraping status API for progress."}
 
+# Api for deleting id from namespace
+class DeleteID_Inputs(BaseModel):
+    id: str
+    namespace: str
 
-######################################## OLD APIS ########################################
 
+@app.post("/api/delete/id")
+def delete_id_api(inputs: DeleteID_Inputs):
+    status = qa_scraper.delete_with_id(inputs.id, inputs.namespace)
+    return status
 
+# Api for deleting namespace
+class DeleteNamespace_Inputs(BaseModel):
+    namespace: str
+
+@app.post("/api/delete/namespace")
+def delete_namespace_api(inputs: DeleteNamespace_Inputs):
+    status = qa_scraper.delete_namespace(inputs.namespace)
+    return status
+
+# Api for listing namespace content
+class ListNamespace_Inputs(BaseModel):
+    namespace: str
+
+@app.post("/api/list/namespace")
+def list_namespace_api(inputs: ListNamespace_Inputs):
+    result = qa_scraper.list_namespace_content(inputs.namespace)
+    return result
+
+# Api for status of scraping process
+class Status_Inputs(BaseModel):
+    namespace_list: list
+    id: str = None
+    namespace: str = None
 
 # generate_response api for checking the status of scraping process
 @app.post("/api/scrape/status")
 def scraper_status_api(inputs: Status_Inputs):
-    status = qa_scraper.scraper_status_multi_pages(inputs.url_list, list(task_queue.queue))
-    return status
+    # check if inputs.namespace_list is not empty:
+    if inputs.namespace_list:
+        status = qa_scraper.scraper_status_multi_pages(inputs.namespace_list, list(scraper_tree_queue.queue))
+    else:
+        status = qa_scraper.scraper_status_single(inputs.namespace, inputs.id)
+    
+    return status    
 
-# The api for deleting the index from pinecone database
-@app.post("/api/scrape/delete")
-def delete_index_api(inputs: Delete_Inputs):
-    status = qa_scraper.delete_namespace(inputs.full_url)
-
-    return status
-
-@app.post("/api/scrape/list_queue")
-def list_queue_api():
-    return list(task_queue.queue)
 
 ################################### EXCEPTION HANDLER ###################################
 
@@ -160,46 +173,3 @@ async def custom_exception_handler(request: Request, exc: Exception):
     message = {"answer": "Error! (EXCEPTION HANDLER)", "source_url": None, "success": False, "error_message1": error_message }
     return JSONResponse(status_code=500, content=message)
 
-
-"""
-
-# start_scrape api for scraping the url and saving the result into pinecone database
-@app.post("/api/pwd")
-async def pwd():
-    pwd = ""
-    pwd_items =""
-    parent_items = ""
-    api_items=""
-    pwd = os.getcwd()
-    try:
-        pwd= os.getcwd()
-        pwd_items = os.listdir()
-    except:
-        pass
-    try:
-        parent_items = os.listdir(os.path.dirname(os.getcwd()))
-    except:
-        pass
-    try:
-        api_items= os.listdir("__pycache__")
-    except:
-        pass
-    return {"pwd": pwd, "pwd_items": pwd_items, "parent_items": parent_items, "api_items": api_items}
-
-
-    
-@app.get("/qa")
-def generate_response(question: str = Query(..., min_length=1)):
-    answer = qa_run.answer_question(df, question=question, debug=False)
-    print(answer)
-    return answer
-
-#http://localhost:8000/qa?question=How%20to%20connect%20Tiledesk%20with%20Telegram
-
-
-@app.post("/api/scrape")
-async def start_scrape(url: Scraper_Inputs):
-    qa_scraper.main(url.full_url)
-    return {"message": "Scrape finished!"}
-
-"""

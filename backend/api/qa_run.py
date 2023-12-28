@@ -86,7 +86,7 @@ def create_context(question: str, pinecone_namespace: str, top_k: int = 5) -> tu
         vector=q_embeddings,
         top_k=top_k,
         include_metadata=True)
-    
+    resource_id = results['matches'][0]['id']
     texts = []
     cur_len = 0
     for result in results['matches']:
@@ -101,7 +101,7 @@ def create_context(question: str, pinecone_namespace: str, top_k: int = 5) -> tu
             break
         texts.append(text)
     
-    return "\n\n###\n\n".join(texts)
+    return "\n\n###\n\n".join(texts), resource_id
 
 def conversation(context: str, question: str, chat_history: str = "", model: str = "gpt-4", max_tokens: int = 1500) -> str:
     """
@@ -284,7 +284,7 @@ def answer_question(question: str, pinecone_namespace: str, chat_history: str = 
     """
     global context_print_option
     context_time_start = time.time()
-    context = create_context(question, pinecone_namespace)
+    context, resource_id = create_context(question, pinecone_namespace)
     print("Context token size: ", compute_token_size(context))
     context_time_end = time.time()
     print("context_create_time : ", context_time_end - context_time_start)
@@ -303,7 +303,7 @@ def answer_question(question: str, pinecone_namespace: str, chat_history: str = 
         #print("Answer: ", answer)
         source = None if source == "None" else source
         success = True if source else False
-        return {"answer": answer, "source": source, "success": success, "error_message": None}
+        return {"answer": answer, "source": source, "namespace": pinecone_namespace, "id": resource_id, "success": success, "error_message": None}
 
     except Exception as e:
         traceback.print_exc()
@@ -374,9 +374,9 @@ def main(question: str, openai_api_key: str, namespace: str, chat_history_dict:d
                 chat_history = create_chat_history_string(chat_history_dict)
                 response = answer_question(question=question, pinecone_namespace=pinecone_namespace, chat_history = chat_history)
             else:
-                response = {"answer": "Error!", "source": None, "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {pinecone_namespace}"}
+                response = {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {pinecone_namespace}"}
         else:
-            response = {"answer": "Error!", "source": None, "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {pinecone_namespace}"}          
+            response = {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {pinecone_namespace}"}          
 
         print(f"{datetime_now} : Response: ", response)
         return response
@@ -385,7 +385,7 @@ def main(question: str, openai_api_key: str, namespace: str, chat_history_dict:d
     except Exception as e:
         traceback.print_exc()
         error_message = traceback.format_exc()
-        return {"answer": "Error!", "source": None, "success": False, "error_message": error_message}          
+        return {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "success": False, "error_message": error_message}          
 
 init()
 
