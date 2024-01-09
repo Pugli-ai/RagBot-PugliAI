@@ -21,6 +21,7 @@ class ErrorResponse(BaseModel):
 
 app = FastAPI()
 scraper_tree_queue = Queue()
+scraper_single_queue = Queue()
 
 origins = ["*"]
 
@@ -45,6 +46,8 @@ def is_url_in_queue(url):
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(queue_worker())
+    asyncio.create_task(single_queue_worker())  # Start the single queue worker
+
 
 async def queue_worker():
     while True:
@@ -54,6 +57,15 @@ async def queue_worker():
             await qa_scraper.main_async(full_url, gptkey, namespace) 
             scraper_tree_queue.task_done()
         await asyncio.sleep(1)  # Sleep for a short duration to prevent busy-waiting
+
+async def single_queue_worker():
+    while True:
+        if not scraper_single_queue.empty():
+            task = scraper_single_queue.get()
+            # Process the task. You'll need to unpack and pass the arguments appropriately
+            await qa_scraper.scrape_single_async(*task)
+            scraper_single_queue.task_done()
+        await asyncio.sleep(1)
 
 ######################################################################################
 ######################################## APIS ########################################
@@ -69,13 +81,15 @@ class ScrapeSingleInputs(BaseModel):
     namespace: str # a generic alfa-num value (UUID etc.) passed on each query
     is_tree : str = "False" # if true, the content is a tree of contents (e.g. a websites)
 
+
 @app.post("/api/scrape/single")
 async def scrape_single_api(inputs: ScrapeSingleInputs, background_tasks: BackgroundTasks):
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
         return {"message": "Invalid Openai API key"}
     else:
-        background_tasks.add_task(qa_scraper.scrape_single, inputs.id, inputs.content, inputs.source, inputs.type, inputs.gptkey, inputs.namespace, inputs.is_tree)
-        #status = qa_scraper.scrape_single(inputs.id, inputs.content, inputs.source, inputs.type, inputs.gptkey, inputs.namespace, inputs.is_tree)
+        # Add task to the queue instead of executing directly
+        task = (inputs.id, inputs.content, inputs.source, inputs.type, inputs.gptkey, inputs.namespace, inputs.is_tree)
+        scraper_single_queue.put(task)
         return {"message": "Scrape request added to queue! Check scraping status API for progress."}
 
 ## API for QA

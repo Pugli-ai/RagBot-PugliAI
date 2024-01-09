@@ -856,7 +856,10 @@ def main(full_url: str, gptkey: str, namespace: str) -> None:
     print(f"Time to upload data to pinecone: {format_time(timer_end - timer_start)}")
     current_url=None
 
-
+async def scrape_single_async(id: str, content: str, source: str, type: str, gptkey: str, namespace: str, is_tree: str) -> None:
+    loop = asyncio.get_event_loop()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        await loop.run_in_executor(executor, scrape_single, id, content, source, type, gptkey, namespace, is_tree)
 
 async def main_async(full_url: str, gptkey: str, namespace: str) -> None:
     loop = asyncio.get_event_loop()

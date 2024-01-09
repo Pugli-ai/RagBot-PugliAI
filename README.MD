@@ -29,160 +29,302 @@ Access the app locally at http://localhost:8100.
 
 # Getting started with Cloud API
 
-#**Definition of REST body and response parameters**
-List of REST API:
-- scarping
-- q&a
-- scraper status
-- delete namespace
+# **Definition of REST Body and Response Parameters**
 
-# Scarping
-API: https://tiledesk-app.gentleisland-369885c7.westus2.azurecontainerapps.io/api/scrape
+## List of REST APIs
+- Scrapers 
+  - Scrape Single
+  - Scrape Tree
+- Q&A
+- Scraper Status
+- List Namespace
+- Delete
+  - Delete by ID
+  - Delete by Namespace
 
-### _Body_:
-``` 
+# Scrapers
+## Scrape Single
+
+**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/scrape/single`
+
+#### Request Body:
+```json
 {
-    "full_url" : "https://www.deghi.it/supporto/",
-    "gptkey" : ""
-    
+    "id": "temp-id57",
+    "content": "",
+    "source": "https://tiledesk.com/pricing-live-chat/",
+    "type": "url",
+    "gptkey": "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",
+    "namespace": "kerem-namespace"
 }
 ```
-_Fields description_:
-- full_url: url to scrape
-- gptkey: openai gpt key
- 
-### _Response_:
-``` 
+#### Fields Description:
+- `id`: The identifier of the single resource.
+- `content`: The content data to save in Pinecone as a row. Should be an empty string (`""`) if `type` is url
+- `source`: The source of the content. Should be a URL if the `type` key is "url". If not, it can be any string, such as "file.txt".
+- `type`: Either "url" or "text". Set as "url" if `content` is not provided and `source` is a URL. Set as "text" if `content` is provided and `source` is not a URL.
+- `gptkey`: The API key for OpenAI services.
+- `namespace`: The namespace of the knowledgebase in Pinecone. This is used for grouping datasets within the knowledgebase.
+
+### Response:
+```json
 {
     "message": "Scrape request added to queue! Check scraping status API for progress."
 }
 ``` 
-_Fields description_:
-- message: information about scraping added to the queue
 
-# Q&A
-API: https://tiledesk-app.gentleisland-369885c7.westus2.azurecontainerapps.io/api/qa
-### _Body_:
-``` 
+#### Fields Description:
+- `message`: Provides detailed information about the scraping request that has been ordered. This message indicates that the request has been queued and advises users to check the scraping status API for updates on the progress.
+
+## Scrape Tree
+
+**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/scrape/tree`
+
+### Request Body:
+```json
 {
-    "question": "How about whatsapp ? ",
-    "kbid" : "https://gethelp.tiledesk.com/",
+    "full_url" : "https://tiledesk.com/",
     "gptkey" : "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",
-    "chat_history_dict" : {
-        "0": {
-            "question": "How to integrate to my website? ",
-            "answer": "To integrate Tiledesk to your website, follow these steps: \n1. Locate your unique Tiledesk javascript code on your Tiledesk Dashboard by going to Settings > Widget > Add chat to your website..."
-        },
-        "1": {
-            "question": "How about telegram?",
-            "answer": "To connect Tiledesk with Telegram, follow these steps:\n\n1. Login in Tiledesk Dashboard, then click “Apps” in the left menu and click Install on the Telegram icon..."
-        }
-    }
+    "namespace": "tiledesk-tree"
+}
+```
+
+#### Fields Description:
+- `full_url`: URL of the root page that should be scraped along with its subpages.
+- `gptkey`: API key for OpenAI services.
+- `namespace`: The namespace in Pinecone where the knowledgebase data will be saved. This is used for grouping datasets within the knowledgebase.
+
+ 
+### Response:
+```json
+{
+    "message": "Scrape request added to queue! Check scraping status API for progress."
 }
 ``` 
 
-_Fields description_:
-- _question_: question asked by the user in tiledesk chatbot
-- _kbid_: knowledge base id represents the link to the website to Q&A
-- _gptkey_: openai gpt key
-- _chat_history_dict_: previous answers and questions asked by the user with the action. if there is no chat history, give an empty dictionary "chat_history_dict" : {} .
+#### Fields Description:
+- `message`: A notification indicating that the scrape request has been added to the queue. Users are advised to check the scraping status API for updates on the progress.
 
-### _Response_:
-```
+# Q&A
+**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/qa`
+
+### Request Body:
+```json
 {
-    "answer": "To move a conversation from a web widget to WhatsApp chat, you need to go to the Chatbot Design Studio in Tiledesk.",
-    "source_url": "https://gethelp.tiledesk.com/tags/how-to-send-bulk-whatsapp-messages-for-free/",
+    "question": "what is Design Studio?",
+    "namespace": "tiledesk-tree",
+    "gptkey": "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"
+}
+
+``` 
+
+_Fields description_:
+- _question_: question asked by the user
+- _namespace_: knowledge base namespace on pinecone
+- _gptkey_: openai gpt key
+
+### Response:
+```json
+{
+    "answer": "Design Studio is an advanced drag-and-drop platform that brings your dream conversation to life. It allows you to build your ideal bot from scratch or use ready-made templates designed specifically for automating lead generation and customer support processes.",
+    "source": "https://tiledesk.com/nl/no-code-chatbot-builder/",
+    "namespace": "tiledesk-tree",
+    "id": "https://tiledesk.com/nl/no-code-chatbot-builder/#0",
     "success": true,
     "error_message": null
 }
 ```
-_Fields description_:
-- _answer_: answer returned by the action based on question and the context
-- _source_url_: link to the original source of the answer in the website
-- _success_: boolean that is true if the action can generate an answer of false if it cannot
-- _error_message_: message returned if an error occurs
-
-## Chat History Dictionary structure
-```
-"chat_history_dict" : {
-        "0": {
-            "question": "How to integrate to my website? ",
-            "answer": "To integrate Tiledesk to your website, follow these steps: \n1. Locate your unique Tiledesk javascript code on your Tiledesk Dashboard by going to Settings > Widget > Add chat to your website..."
-        },
-        "1": {
-            "question": "How about telegram?",
-            "answer": "To connect Tiledesk with Telegram, follow these steps:\n\n1. Login in Tiledesk Dashboard, then click “Apps” in the left menu and click Install on the Telegram icon..."
-        }
-    }
-```
+#### Fields Description:
+- `answer`: Answer returned by the action based on the question and the context.
+- `source`: The source of the content.
+- `namespace`: The namespace of the source (knowledgebase group ID).
+- `id`: The ID of the source on Pinecone.
+- `success`: A boolean that is true if the action can generate an answer, or false if it cannot.
+- `error_message`: Message returned if an error occurs.
 
 
-# Scarping status
+# Scraping Status
 
-API: https://tiledesk-app.gentleisland-369885c7.westus2.azurecontainerapps.io/api/scrape/status
+**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/scrape/status`
 
-### _Body_:
-``` 
+### Request Body:
+```json
 {
-    "url_list" : [
-        "https://docs.flowiseai.com/",
-        "https://python.langchain.com/",
-        "https://docs.pinecone.io/",
-        "https://www.deghi.it/supporto/"
-        ]
+    "namespace_list": [],
+    "namespace": "kerem-namespace",
+    "id": "temp-id57"
+}
+
+//////////  OR  //////////
+ 
+{
+    "namespace_list": [
+        "flowiseai",
+        "langchain",
+        "pinecone",
+        "deghi"
+    ],
+    "namespace": "",
+    "id": ""
 }
 ```
-_Fields description_:
-- _url_list_: url list of the websites to check (you can also give one url but it should be in the list) 
-### _Response_:
-``` 
+
+#### Fields Description:
+- `namespace_list`: A list of namespaces for the knowledgebases to check. You can provide a single namespace, but it must be within a list. This field should be an empty list if checking the status of a single scrape.
+- `namespace`: The namespace of the knowledgebase for a single scrape. This field should be an empty string if checking the status of a scrape tree.
+- `id`: The ID of the knowledge for a single scrape. This field should be an empty string if checking the status of a scrape tree.
+
+### Response for scrape single status:
+```json
 {
-    "https://docs.flowiseai.com/": {
-        "status_message": "Crawling is queued in the 1. order for the https://docs.flowiseai.com/.",
+    "status_message": "Crawling is finished for temp-id57",
+    "status_code": 3,
+    "queue_order": -1
+}
+```
+
+#### Fields Description:
+- `status_message`: The message indicating the scraping status.
+- `status_code`: The status code of scraping, where the values represent the following:
+    - 0: Not started
+    - 2: Started
+    - 3: Finished
+    - 4: Error
+- `queue_order`: Since the single scrape status does not involve a queue, this field will always be -1. This is maintained for structural consistency.
+
+### Response for Namespace List:
+```json
+{
+    "flowiseai": {
+        "status_message": "Crawling is queued in the 1st order for the flowiseai.",
         "status_code": 1,
         "queue_order": 1
     },
-    "https://python.langchain.com/": {
-        "status_message": "Crawling is queued in the 2. order for the https://python.langchain.com/.",
+    "langchain": {
+        "status_message": "Crawling is queued in the 2nd order for the langchain.",
         "status_code": 1,
         "queue_order": 2
     },
-    "https://docs.pinecone.io/": {
-        "status_message": "Crawling is started but not finished yet for https://docs.pinecone.io/",
+    "pinecone": {
+        "status_message": "Crawling is started but not finished yet for pinecone",
         "status_code": 2,
         "queue_order": 0
     },
-    "https://www.deghi.it/supporto/": {
-        "status_message": "Crawling is finished for https://www.deghi.it/supporto/",
+    "deghi": {
+        "status_message": "Crawling is finished for deghi",
         "status_code": 3,
         "queue_order": -1
     }
 }
 ``` 
-_Fields description_:
-- _status_message_ : the message of the scraping status
-- _status_code_: the status code of scraping, 0-> not started, 1-> queued, 2-> started, 3-> finished
-- _queue_order_: the position of the website in queue (0 means it is processing, -1 means it is not in the queue)
 
-# Delete namespace
+#### Fields Description:
+- `status_message`: The message indicating the current scraping status.
+- `status_code`: The status code of scraping, defined as follows:
+    - 0: Not started
+    - 1: Queued
+    - 2: Started
+    - 3: Finished
+    - 4: Error
+- `queue_order`: The position of the website in the queue. A value of 0 means it is currently being processed, while -1 indicates that it is not in the queue.
 
-API: https://tiledesk-app.gentleisland-369885c7.westus2.azurecontainerapps.io/api/scrape/delete
-### _Body_:
-``` 
+
+# List Namespace
+
+**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/list/namespace`
+
+### Request Body:
+```json
 {
-    "full_url" : "https://www.deghi.it/supporto/"
+    "namespace": "kerem-namespace"
 }
 ```
-_Fields description_:
-- _full_url_: url of the website to delete 
-### _Response_:
-``` 
+
+#### Fields Description:
+- `namespace`: The namespace of the knowledgebase that will be used for retrieving all data.
+
+### Response:
+```json
 {
     "success": true,
-    "message": "https://www.deghi.it/supporto/ is deleted from database"
+    "message": {
+        "temp-id1": {
+            "content": "source: https://www.google.com/ Chi siamo Google Store GmailImmagini Accedi Google offerto in: English Italia Pubblicità Soluzioni aziendali Come funziona la Ricerca Il nostro terzo decennio di azione per il clima Privacy Termini Impostazioni IT Accedi Prima di continuare su Google Ricordiamo che i nostri..",
+            "id": "temp-id1",
+            "is_tree": "False",
+            "n_tokens": 499.0,
+            "source": "https://www.google.com/",
+            "type": "url"
+        },
+        "temp-id0": {
+            "content": "source: https://tiledesk.com/pricing-live-chat/ Discover Tiledesk’s Web to ChatGPT transformer! Solutions Products Pricing Resources Log in Sign up free Engage your customers now Please Select Your Plan Monthly Yearly..",
+            "id": "temp-id0",
+            "is_tree": "False",
+            "n_tokens": 588.0,
+            "source": "https://tiledesk.com/pricing-live-chat/",
+            "type": "url"
+        }
+    }
 }
 ``` 
-_Fields description_:
-- _success_: A bool value that indicates if given index deleted successfully or not
-- _message_: the message of the deleting process
+#### Fields Description:
+- `success`: A boolean value that indicates whether the given index was successfully deleted.
+- `message`: The detailed information about the rows within the specified namespace.
+
+Note: `is_tree` indicates whether the row was scraped using the scraper tree method or not.
+
+
+
+
+# Delete ID
+
+**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/delete/id`
+
+### Request Body:
+```json
+{
+    "id": "temp-id56",
+    "namespace": "kerem-namespace"  
+}
+```
+#### Fields Description:
+- `id`: The ID of the content on Pinecone.
+- `namespace`: The namespace of the content to delete.
+
+### Response:
+``` json
+{
+    "success": true,
+    "message": "temp-id56 is deleted from database"
+}
+``` 
+#### Fields Description:
+- `success`: A boolean value that indicates whether the given index was successfully deleted or not.
+- `message`: The message detailing the outcome of the deleting process.
+
+
+# Delete Namespace
+
+**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/delete/namespace`
+
+### Request Body:
+```json
+{
+    "namespace": "kerem-namespace"
+}
+
+```
+#### Fields Description:
+- `namespace`: The namespace of the knowledgebase to delete.
+
+### Response:
+```json
+{
+    "success": true,
+    "message": "kerem-namespace is deleted from database"
+}
+``` 
+#### Fields Description:
+- `success`: A boolean value that indicates whether the given namespace was successfully deleted or not.
+- `message`: The message detailing the outcome of the deleting process.
 

@@ -6,6 +6,8 @@ try:
     from api import variables_db
 except:
     import variables_db
+from traceback import print_exc
+import traceback
     
 INDEX= None
 
@@ -23,9 +25,10 @@ init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
 def is_api_key_valid(api_key):
     try:
         openai.api_key = api_key
-        openai.Completion.create(engine="davinci", prompt="Test")
+        openai.Model.list()
         return True
     except Exception as e:
+        print(traceback.format_exc())
         return False
 
 def is_db_exists():
