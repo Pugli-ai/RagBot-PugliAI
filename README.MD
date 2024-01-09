@@ -30,6 +30,7 @@ Access the app locally at http://localhost:8100.
 # Getting started with Cloud API
 # **Definition of REST Body and Response Parameters**
 
+<<<<<<< HEAD
 ## List of REST APIs
 - Scrapers 
   - Scrape Single
@@ -44,6 +45,24 @@ Access the app locally at http://localhost:8100.
 # Scrapers
 ## Scrape Single
 
+=======
+# **Definition of REST Body and Response Parameters**
+
+## List of REST APIs
+- Scrapers 
+  - Scrape Single
+  - Scrape Tree
+- Q&A
+- Scraper Status
+- List Namespace
+- Delete
+  - Delete by ID
+  - Delete by Namespace
+
+# Scrapers
+## Scrape Single
+
+>>>>>>> e5fa4ee (change background task to queue on single scrape)
 **API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/scrape/single`
 
 #### Request Body:
@@ -112,8 +131,12 @@ Access the app locally at http://localhost:8100.
 {
     "question": "what is Design Studio?",
     "namespace": "tiledesk-tree",
+<<<<<<< HEAD
     "gptkey": "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",
     "model": "gpt-3.5-turbo",
+=======
+    "gptkey": "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"
+>>>>>>> e5fa4ee (change background task to queue on single scrape)
 }
 
 ``` 
@@ -122,7 +145,10 @@ _Fields description_:
 - _question_: question asked by the user
 - _namespace_: knowledge base namespace on pinecone
 - _gptkey_: openai gpt key
+<<<<<<< HEAD
 - _model_: gpt model name . "gpt-3.5-turbo" or "gpt-4"
+=======
+>>>>>>> e5fa4ee (change background task to queue on single scrape)
 
 ### Response:
 ```json
