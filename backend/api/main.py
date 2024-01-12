@@ -98,6 +98,7 @@ class QA_Inputs(BaseModel):
     gptkey :str
     namespace : str
     chat_history_dict: dict = {}
+    model: str = "gpt-3.5-turbo" # or gpt-4
 
 @app.post("/api/qa")
 def qa_run_api(inputs: QA_Inputs):
@@ -106,7 +107,9 @@ def qa_run_api(inputs: QA_Inputs):
         question=inputs.question,
         openai_api_key=inputs.gptkey,
         namespace=inputs.namespace,
+        model = inputs.model,
         chat_history_dict=inputs.chat_history_dict)
+    
     api_timer_end = time.time()
     print("API TIME : ", api_timer_end - api_timer_start)
     return answer

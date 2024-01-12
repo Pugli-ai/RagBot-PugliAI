@@ -28,7 +28,6 @@ To run it without docker:
 Access the app locally at http://localhost:8100.
 
 # Getting started with Cloud API
-
 # **Definition of REST Body and Response Parameters**
 
 ## List of REST APIs
@@ -113,7 +112,8 @@ Access the app locally at http://localhost:8100.
 {
     "question": "what is Design Studio?",
     "namespace": "tiledesk-tree",
-    "gptkey": "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"
+    "gptkey": "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",
+    "model": "gpt-3.5-turbo",
 }
 
 ``` 
@@ -122,6 +122,7 @@ _Fields description_:
 - _question_: question asked by the user
 - _namespace_: knowledge base namespace on pinecone
 - _gptkey_: openai gpt key
+- _model_: gpt model name . "gpt-3.5-turbo" or "gpt-4"
 
 ### Response:
 ```json

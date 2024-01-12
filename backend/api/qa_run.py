@@ -156,14 +156,14 @@ def conversation(context: str, question: str, chat_history: str = "", model: str
     return response['choices'][0]['message']['content']
 
 
-def conversation_with_langchain(context: str, question: str, chat_history: str = "", model: str = "gpt-3.5-turbo") -> str:
+def conversation_with_langchain(context: str, question: str, model: str, chat_history: str = "") -> str:
     """
     Generate a conversation based on the provided context and question.
 
     Args:
         context (str): The context for the conversation.
         question (str): The question to be answered.
-        model (str, optional): The model to be used for the conversation. Defaults to "gpt-4".
+        model (str, optional): The model to be used for the conversation. Defaults to "gpt-4". or "gpt-3.5-turbo"
         max_tokens (int, optional): Maximum tokens for the response. Defaults to 1500.
 
     Returns:
@@ -227,33 +227,6 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
     return parsed_response
 
 
-def fix_json_with_langchain(broken_json: str, model: str = "gpt-3.5-turbo", max_tokens: int = 8000) -> str:
-    """ this method for fixing the broken json with langchain
-
-    Args:
-        broken_json_input (str): _description_
-        model (str, optional): _description_. Defaults to "gpt-3.5-turbo".
-        max_tokens (int, optional): _description_. Defaults to 1500.
-
-    Returns:
-        str: fixed json
-    """
-    template = """I have a corrupted json as below and i am failing to read it with this line of code, can you fix the. json and provide me the fixed one without typing any other explaination. Because i will copy your response and it should only include the fixed json string:
-    ```python
-    json.loads(broken_json)
-    ```
-    ---
-    Broken JSON:
-    {broken_json}
-    """
-    prompt = PromptTemplate(input_variables=["broken_json"], template=template)
-    LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model)
-    chatgpt_chain = LLMChain(llm=LLM, prompt=prompt, verbose=False)
-    answer = chatgpt_chain.predict(broken_json=broken_json)
-
-    answer_json = json.loads(answer)
-    
-    return answer_json
 
 def handle_exception(e: Exception) -> dict:
     """
@@ -270,7 +243,7 @@ def handle_exception(e: Exception) -> dict:
     
     return {"answer": "Error!", "source": None, "success": False, "error_message": error_message[-1]}
 
-def answer_question(question: str, pinecone_namespace: str, chat_history: str = "") -> dict:
+def answer_question(question: str, pinecone_namespace: str, model: str, chat_history: str = "") -> dict:
     """
     Answer a question based on the most similar context.
 
@@ -295,7 +268,7 @@ def answer_question(question: str, pinecone_namespace: str, chat_history: str = 
 
     try:
         conversation_time_start = time.time()
-        answer_json = conversation_with_langchain(context, question, chat_history = chat_history)
+        answer_json = conversation_with_langchain(context, question, model = model, chat_history = chat_history)
         conversation_time_end = time.time()
         print("conversation_time : ", conversation_time_end - conversation_time_start)
         answer = answer_json['answer']
@@ -337,7 +310,7 @@ def init() -> None:
     
 ############################################################ MAIN FUNCTION ############################################################
 #######################################################################################################################################
-def main(question: str, openai_api_key: str, namespace: str, chat_history_dict:dict = dict()) -> dict:
+def main(question: str, openai_api_key: str, namespace: str, model: str, chat_history_dict:dict = dict()) -> dict:
     """
     Main function to answer a question based on the most relevant context from a database.
 
@@ -372,7 +345,7 @@ def main(question: str, openai_api_key: str, namespace: str, chat_history_dict:d
             namespaces = list(index_stats['namespaces'].keys())
             if pinecone_namespace in namespaces:
                 chat_history = create_chat_history_string(chat_history_dict)
-                response = answer_question(question=question, pinecone_namespace=pinecone_namespace, chat_history = chat_history)
+                response = answer_question(question=question, pinecone_namespace=pinecone_namespace, model=model, chat_history = chat_history)
             else:
                 response = {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {pinecone_namespace}"}
         else:
@@ -671,4 +644,34 @@ def conversation_with_langchain(context: str, question: str, chat_history: str =
         }}
     }}
     """
+
+
+def fix_json_with_langchain(broken_json: str, model: str = "gpt-3.5-turbo", max_tokens: int = 8000) -> str:
+    """ this method for fixing the broken json with langchain
+
+    Args:
+        broken_json_input (str): _description_
+        model (str, optional): _description_. Defaults to "gpt-3.5-turbo".
+        max_tokens (int, optional): _description_. Defaults to 1500.
+
+    Returns:
+        str: fixed json
+    """
+    template = """I have a corrupted json as below and i am failing to read it with this line of code, can you fix the. json and provide me the fixed one without typing any other explaination. Because i will copy your response and it should only include the fixed json string:
+    ```python
+    json.loads(broken_json)
+    ```
+    ---
+    Broken JSON:
+    {broken_json}
+    """
+    prompt = PromptTemplate(input_variables=["broken_json"], template=template)
+    LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model)
+    chatgpt_chain = LLMChain(llm=LLM, prompt=prompt, verbose=False)
+    answer = chatgpt_chain.predict(broken_json=broken_json)
+
+    answer_json = json.loads(answer)
+    
+    return answer_json
+
 '''
