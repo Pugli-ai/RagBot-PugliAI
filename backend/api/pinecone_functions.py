@@ -6,7 +6,7 @@ try:
     from api import variables_db
 except:
     import variables_db
-from traceback import print_exc
+
 import traceback
     
 INDEX= None
