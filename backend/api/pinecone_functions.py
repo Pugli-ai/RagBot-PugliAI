@@ -13,17 +13,19 @@ from datetime import datetime
 import pytz
     
 INDEX= None
-
+is_pinecone_initialized = False
 
 def init_pinecone(api_key, api_key_zone):
-
+    api_key = variables_db.PINECONE_API_KEY
+    api_key_zone = variables_db.PINECONE_API_KEY_ZONE
     pinecone.init(
     api_key=api_key,
     environment=api_key_zone  # find next to API key in console
     )
     
-
-init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
+if not is_pinecone_initialized:
+    init_pinecone()
+    is_pinecone_initialized = True
 
 def is_api_key_valid(api_key):
     try:

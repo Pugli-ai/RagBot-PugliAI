@@ -18,7 +18,6 @@ from threading import Lock
 
 lock = Lock()
 
-
 class ErrorResponse(BaseModel):
     detail: str
 
