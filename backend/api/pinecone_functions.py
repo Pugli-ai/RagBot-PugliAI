@@ -15,7 +15,7 @@ import pytz
 INDEX= None
 is_pinecone_initialized = False
 
-def init_pinecone(api_key, api_key_zone):
+def init_pinecone():
     api_key = variables_db.PINECONE_API_KEY
     api_key_zone = variables_db.PINECONE_API_KEY_ZONE
     pinecone.init(
