@@ -8,6 +8,9 @@ except:
     import variables_db
 
 import traceback
+
+from datetime import datetime
+import pytz
     
 INDEX= None
 
@@ -89,3 +92,8 @@ def get_domain_and_url(full_url):
     return full_url, domain
 
 
+def get_rome_time():
+    """Returns the current date and time in Rome timezone as a string."""
+    rome_tz = pytz.timezone('Europe/Rome')
+    rome_time = datetime.now(rome_tz)
+    return rome_time.strftime("%Y-%m-%d %H:%M:%S")

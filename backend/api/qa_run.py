@@ -219,10 +219,6 @@ def conversation_with_langchain(context: str, question: str, model: str, chat_hi
     response = LLM(messages)
 
     response_string = response.content.replace("\n", "")
-    # print("\n########################################################")
-    # print("ANSWER: ")
-    # print(response_string)
-    # print("########################################################\n")
     parsed_response = output_parser.parse(response_string)
     return parsed_response
 
@@ -273,7 +269,6 @@ def answer_question(question: str, pinecone_namespace: str, model: str, chat_his
         print("conversation_time : ", conversation_time_end - conversation_time_start)
         answer = answer_json['answer']
         source = answer_json['source']
-        #print("Answer: ", answer)
         source = None if source == "None" else source
         success = True if source else False
         return {"answer": answer, "source": source, "namespace": pinecone_namespace, "id": resource_id, "success": success, "error_message": None}
@@ -325,8 +320,8 @@ def main(question: str, openai_api_key: str, namespace: str, model: str, chat_hi
     """
     try:
         #print datetime with date
-        datetime_now =datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        print(f'{datetime_now} // Question: {question}')
+        rome_time = pinecone_functions.get_rome_time()
+        print(f'{rome_time} // Question: {question}')
         
         # Check and update the OpenAI API key if necessary.
         if variables_db.OPENAI_API_KEY != openai_api_key:
@@ -351,7 +346,7 @@ def main(question: str, openai_api_key: str, namespace: str, model: str, chat_hi
         else:
             response = {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {pinecone_namespace}"}          
 
-        print(f"{datetime_now} : Response: ", response)
+        print(f"{rome_time} : Response: ", response)
         return response
 
 
@@ -549,129 +544,3 @@ if __name__ == "__main__":
         for question in question_list:
             answer = main(question, variables_db.OPENAI_API_KEY, full_url)
 
-
-'''
-def conversation_with_langchain(context: str, question: str, chat_history: str = "", model: str = "gpt-3.5-turbo", max_tokens: int = 1500) -> str:
-    """
-    Generate a conversation based on the provided context and question.
-
-    Args:
-        context (str): The context for the conversation.
-        question (str): The question to be answered.
-        model (str, optional): The model to be used for the conversation. Defaults to "gpt-4".
-        max_tokens (int, optional): Maximum tokens for the response. Defaults to 1500.
-
-    Returns:
-        str: The model's response.
-    """
-
-    template = """# Chatbot Instructions
-    
-    You are a chatbot programmed to provide precise answers to questions by exploring a given webpage and its subpages. Your objective is to parse through the provided context to find the most accurate answer to the question asked. Follow these guidelines to ensure correct behavior:
-
-    ## Guidelines
-    - **Greeting**: Always respond to greeting messages with something like, 'Hi, how can I help you?'
-    - **Language**: Ensure that your answer is in the same language as the question asked.
-    - **JSON Formatting**: Format your response as a JSON object with the root key labeled as 'Response'.
-
-        ```json
-        {{
-            'Response': {{
-                'questions_language': 'language',
-                'answer': 'answer in question\'s language',
-                'source': 'source'
-            }}
-        }}
-        ```
-
-    - **JSON Readability**: Make sure that the answer is readable using the `json.loads(answer)` Python code. If it's not, it won't be processed correctly.
-    - **Source URL**: If the answer is found in the context, include its source URL. If it's not, set `source` to `None`.
-
-    ---
-
-    Context: {context}
-
-    ---
-
-    Chat History: {chat_history}
-
-    ---
-
-    Question: {question}"""
-   
-    prompt = PromptTemplate(input_variables=["context", "chat_history", "question"], template=template)
-    LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model)
-    chatgpt_chain = LLMChain(llm=LLM, prompt=prompt, verbose=False)
-    answer = chatgpt_chain.predict(context=context, chat_history=chat_history, question=question)
-    # print("########################################################")
-    # print("ANSWER: ")
-    # print(answer)
-    # print("########################################################")
-    try:
-        answer_json = json.loads(answer)
-        
-    except:
-        print("JSON IS BROKEN FOR THE FIRST REQUEST, NOW TRYING TO FIX IT WITH ANOTHER CHATGPT REQUEST")
-        answer_json = fix_json_with_langchain(answer, model=model, max_tokens=max_tokens)
-
-    return answer_json['Response']
-
-    
-    template_old = """
-    You are a chatbot seeking precise answers to given questions by exploring a webpage and its subpages. Your goal is to sift through the provided context to find the most accurate answer to the question asked. If the context contains a direct or related answer, provide it with question's language. If the answer is not present in the context or chat history say "I don't know".
-    These are the rules;
-    * Always make a respond to greetings messages you can say like "hi how can i help you?".
-    * Translate your answer to the question's language.
-    * If the answer in the context provide its source url. You will find it in the context. Otherwise make source url None.
-    ---
-
-    Context: {context}
-
-    ---
-
-    Chat History:
-    {chat_history}
-
-    ---
-
-    Question: {question}
-
-    {{"Response" :
-        {{
-        "questions_language" : "language",
-        "answer": "answer in question's language",
-        "source": "source"
-        }}
-    }}
-    """
-
-
-def fix_json_with_langchain(broken_json: str, model: str = "gpt-3.5-turbo", max_tokens: int = 8000) -> str:
-    """ this method for fixing the broken json with langchain
-
-    Args:
-        broken_json_input (str): _description_
-        model (str, optional): _description_. Defaults to "gpt-3.5-turbo".
-        max_tokens (int, optional): _description_. Defaults to 1500.
-
-    Returns:
-        str: fixed json
-    """
-    template = """I have a corrupted json as below and i am failing to read it with this line of code, can you fix the. json and provide me the fixed one without typing any other explaination. Because i will copy your response and it should only include the fixed json string:
-    ```python
-    json.loads(broken_json)
-    ```
-    ---
-    Broken JSON:
-    {broken_json}
-    """
-    prompt = PromptTemplate(input_variables=["broken_json"], template=template)
-    LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens, model=model)
-    chatgpt_chain = LLMChain(llm=LLM, prompt=prompt, verbose=False)
-    answer = chatgpt_chain.predict(broken_json=broken_json)
-
-    answer_json = json.loads(answer)
-    
-    return answer_json
-
-'''

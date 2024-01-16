@@ -12,7 +12,11 @@ import os
 from queue import Queue
 import asyncio
 import time
+from datetime import datetime
+import pytz
+from threading import Lock
 
+lock = Lock()
 
 
 class ErrorResponse(BaseModel):
@@ -56,7 +60,7 @@ async def queue_worker():
             full_url, gptkey, namespace = scraper_tree_queue.get()
             await qa_scraper.main_async(full_url, gptkey, namespace) 
             scraper_tree_queue.task_done()
-        await asyncio.sleep(1)  # Sleep for a short duration to prevent busy-waiting
+        await asyncio.sleep(2)  # Sleep for a short duration to prevent busy-waiting
 
 async def single_queue_worker():
     while True:
@@ -65,7 +69,7 @@ async def single_queue_worker():
             # Process the task. You'll need to unpack and pass the arguments appropriately
             await qa_scraper.scrape_single_async(*task)
             scraper_single_queue.task_done()
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
 
 ######################################################################################
 ######################################## APIS ########################################
@@ -84,6 +88,7 @@ class ScrapeSingleInputs(BaseModel):
 
 @app.post("/api/scrape/single")
 async def scrape_single_api(inputs: ScrapeSingleInputs, background_tasks: BackgroundTasks):
+    print(f"{pinecone_functions.get_rome_time()} - /api/scrape/single is called")
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
         return {"message": "Invalid Openai API key"}
     else:
@@ -102,6 +107,8 @@ class QA_Inputs(BaseModel):
 
 @app.post("/api/qa")
 def qa_run_api(inputs: QA_Inputs):
+    print(f"{pinecone_functions.get_rome_time()} - /api/qa is called")
+
     api_timer_start = time.time()
     answer = qa_run.main(
         question=inputs.question,
@@ -111,7 +118,7 @@ def qa_run_api(inputs: QA_Inputs):
         chat_history_dict=inputs.chat_history_dict)
     
     api_timer_end = time.time()
-    print("API TIME : ", api_timer_end - api_timer_start)
+    print("/api/qa TIME COST : ", api_timer_end - api_timer_start)
     return answer
 
 ## API for scraping a tree of pages
@@ -122,6 +129,7 @@ class Scraper_Inputs(BaseModel):
 
 @app.post("/api/scrape/tree")
 async def scraper_tree_api(inputs: Scraper_Inputs):
+    print(f"{pinecone_functions.get_rome_time()} - /api/scrape/tree is called")
 
     if not pinecone_functions.is_api_key_valid(inputs.gptkey):
         return {"message": "Invalid Openai API key"}
@@ -141,6 +149,8 @@ class DeleteID_Inputs(BaseModel):
 
 @app.post("/api/delete/id")
 def delete_id_api(inputs: DeleteID_Inputs):
+    print(f"{pinecone_functions.get_rome_time()} - /api/delete/id is called")
+
     status = qa_scraper.delete_with_id(inputs.id, inputs.namespace)
     return status
 
@@ -150,6 +160,7 @@ class DeleteNamespace_Inputs(BaseModel):
 
 @app.post("/api/delete/namespace")
 def delete_namespace_api(inputs: DeleteNamespace_Inputs):
+    print(f"{pinecone_functions.get_rome_time()} - /api/delete/namespace is called")
     status = qa_scraper.delete_namespace(inputs.namespace)
     return status
 
@@ -159,6 +170,7 @@ class ListNamespace_Inputs(BaseModel):
 
 @app.post("/api/list/namespace")
 def list_namespace_api(inputs: ListNamespace_Inputs):
+    print(f"{pinecone_functions.get_rome_time()} - /api/list/namespace is called")
     result = qa_scraper.list_namespace_content(inputs.namespace)
     return result
 
@@ -171,13 +183,17 @@ class Status_Inputs(BaseModel):
 # generate_response api for checking the status of scraping process
 @app.post("/api/scrape/status")
 def scraper_status_api(inputs: Status_Inputs):
-    # check if inputs.namespace_list is not empty:
-    if inputs.namespace_list:
-        status = qa_scraper.scraper_status_multi_pages(inputs.namespace_list, list(scraper_tree_queue.queue))
-    else:
-        status = qa_scraper.scraper_status_single(inputs.namespace, inputs.id)
+    with lock:  # Acquire the lock
+        time.sleep(2)
+        print(f"{pinecone_functions.get_rome_time()} - /api/scrape/status is called")
+        # check if inputs.namespace_list is not empty:
+        if inputs.namespace_list:
+            status = qa_scraper.scraper_status_multi_pages(inputs.namespace_list, list(scraper_tree_queue.queue))
+        else:
+            status = qa_scraper.scraper_status_single(inputs.namespace, inputs.id)
     
-    return status    
+    # The lock is automatically released here
+    return status 
 
 
 ################################### EXCEPTION HANDLER ###################################
