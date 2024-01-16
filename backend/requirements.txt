@@ -9,7 +9,7 @@ matplotlib
 plotly
 scipy
 scikit-learn
-pinecone-client
+pinecone-client==2.2.2
 bs4
 beautifulsoup4
 tiktoken
