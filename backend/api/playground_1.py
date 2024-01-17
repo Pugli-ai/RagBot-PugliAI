@@ -45,7 +45,7 @@ async def qa_request(session):
 async def main():
     async with aiohttp.ClientSession() as session:
         scrape_tasks = [scrape_single(session, url, index) for index, url in enumerate(SCRAPING_URLS)]
-        qa_tasks = [qa_request(session) for _ in range(10)]
+        qa_tasks = [qa_request(session) for _ in range(20)]
         results = await asyncio.gather(*scrape_tasks, *qa_tasks)
         for result in results:
             print(json.dumps(result, indent=2))
