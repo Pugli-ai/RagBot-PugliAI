@@ -268,7 +268,10 @@ def answer_question(question: str, pinecone_namespace: str, model: str, chat_his
         print("conversation_time : ", conversation_time_end - conversation_time_start)
         answer = answer_json['answer']
         source = answer_json['source']
-        source = None if source == "None" or variables_db.eof_index in source else source
+        if source:
+            source = None if source == "None" or variables_db.eof_index in source else source
+        else:
+            source = None
 
         success = True if source else False
         return {"answer": answer, "source": source, "namespace": pinecone_namespace, "id": resource_id, "prompt_token_size": prompt_token_size, "success": success, "error_message": None}
@@ -377,7 +380,8 @@ if __name__ == "__main__":
 
     if full_url == "temp-namespace":
         question_list = [
-                        #"who is Mustafa Kemal ?",
+                        "what time is it?",
+                        "who is Mustafa Kemal ?",
                         "what are the pricing for tiledesk?",
         ]
 
