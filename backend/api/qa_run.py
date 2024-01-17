@@ -209,18 +209,18 @@ def conversation_with_langchain(context: str, question: str, model: str, chat_hi
     format_instructions = output_parser.get_format_instructions()
 
     prompt = ChatPromptTemplate.from_template(template=template_string)
-
     messages = prompt.format_messages(
         context=context,
         chat_history=chat_history,
         question=question,
         format_instructions=format_instructions)
-    
+    prompt_token_size = compute_token_size(messages[0].content)
+    print("FULL PROMPT TOKEN SIZE : ", prompt_token_size)
     response = LLM(messages)
 
     response_string = response.content.replace("\n", "")
     parsed_response = output_parser.parse(response_string)
-    return parsed_response
+    return parsed_response , prompt_token_size
 
 
 
@@ -236,8 +236,7 @@ def handle_exception(e: Exception) -> dict:
     """
     error_message = traceback.format_exc().splitlines()
     error_message = [x for x in error_message if x.strip()]
-    
-    return {"answer": "Error!", "source": None, "success": False, "error_message": error_message[-1]}
+    return {"answer": "Error!", "source": None, "namespace":"", "id": "", "prompt_token_size": "0", "success": False, "error_message": error_message[-1]}
 
 def answer_question(question: str, pinecone_namespace: str, model: str, chat_history: str = "") -> dict:
     """
@@ -264,14 +263,15 @@ def answer_question(question: str, pinecone_namespace: str, model: str, chat_his
 
     try:
         conversation_time_start = time.time()
-        answer_json = conversation_with_langchain(context, question, model = model, chat_history = chat_history)
+        answer_json, prompt_token_size= conversation_with_langchain(context, question, model = model, chat_history = chat_history)
         conversation_time_end = time.time()
         print("conversation_time : ", conversation_time_end - conversation_time_start)
         answer = answer_json['answer']
         source = answer_json['source']
-        source = None if source == "None" else source
+        source = None if source == "None" or variables_db.eof_index in source else source
+
         success = True if source else False
-        return {"answer": answer, "source": source, "namespace": pinecone_namespace, "id": resource_id, "success": success, "error_message": None}
+        return {"answer": answer, "source": source, "namespace": pinecone_namespace, "id": resource_id, "prompt_token_size": prompt_token_size, "success": success, "error_message": None}
 
     except Exception as e:
         traceback.print_exc()
@@ -342,9 +342,9 @@ def main(question: str, openai_api_key: str, namespace: str, model: str, chat_hi
                 chat_history = create_chat_history_string(chat_history_dict)
                 response = answer_question(question=question, pinecone_namespace=pinecone_namespace, model=model, chat_history = chat_history)
             else:
-                response = {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {pinecone_namespace}"}
+                response = {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "prompt_token_size": "0", "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {pinecone_namespace}"}
         else:
-            response = {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {pinecone_namespace}"}          
+            response = {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "prompt_token_size": "0", "success": False, "error_message": f"The pinecone database is not created, please start the scraper for {pinecone_namespace}"}          
 
         print(f"{rome_time} : Response: ", response)
         return response
@@ -353,7 +353,7 @@ def main(question: str, openai_api_key: str, namespace: str, model: str, chat_hi
     except Exception as e:
         traceback.print_exc()
         error_message = traceback.format_exc()
-        return {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "success": False, "error_message": error_message}          
+        return {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "prompt_token_size": "0", "success": False, "error_message": error_message}          
 
 init()
 
@@ -382,7 +382,7 @@ if __name__ == "__main__":
         ]
 
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
         
     if full_url == "https://gethelp.tiledesk.com/":
         question_list = [
@@ -439,7 +439,8 @@ if __name__ == "__main__":
 
     ]
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
 
     elif full_url == "https://www.deghi.it/supporto/":
         question_list = [
@@ -456,16 +457,19 @@ if __name__ == "__main__":
                         "quanto tempo ci vuole per ricevere un ordine?"
         ]
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
 
 
     elif full_url == "https://docs.pinecone.io/":
         question = "What is pinecone?"
-        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
         print(f"Question: {question}\nAnswer: {answer}")
 
         question = "How to create an index?"
-        answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+        answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
         print(f"Question: {question}\nAnswer: {answer}")
     elif full_url == "https://knowledge.webafrica.co.za":
         question_list = [
@@ -473,28 +477,32 @@ if __name__ == "__main__":
                         
         ]
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)        
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+        
     elif full_url == "https://ecobaby.it/":
         question_list = [
                         "What is ecobaby?",
                         
         ]
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
     elif full_url == "https://aulab.it/":
         question_list = [
                         "What is web programming?",
                       
         ] 
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
     elif full_url == "https://lineaamica.gov.it/":
         question_list = [
                         "What is web lineaamicia?",
                       
         ] 
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
 
     elif full_url == "http://cairorcsmedia.it/":
         question_list = [
@@ -502,7 +510,8 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
 
     elif full_url == "https://www.sace.it/":
         question_list = [
@@ -510,7 +519,8 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
 
     elif full_url == "https://www.ucl.ac.uk/":
         question_list = [
@@ -518,7 +528,8 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
 
     elif full_url == "http://iostudiocongeco.it/":
         question_list = [
@@ -526,7 +537,8 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
 
     elif full_url == "https://www.postpickr.com/":
         question_list = [
@@ -534,7 +546,8 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
 
     elif full_url == "https://www.loloballerina.com/":
         question_list = [
@@ -542,5 +555,6 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question, variables_db.OPENAI_API_KEY, full_url)
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+
 
