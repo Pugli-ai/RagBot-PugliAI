@@ -34,6 +34,7 @@ if __name__ == "__main__":
     namespaces = list(index_stats['namespaces'].keys())
 
     for namespace in namespaces:
+        print(f"Processing namespace {namespace}")
         # Write its ids to a csv
         result = pinecone_functions.INDEX.query(
             namespace=namespace,
@@ -43,10 +44,12 @@ if __name__ == "__main__":
         )
         source_urls = set()
         for match in result["matches"]:
-            source_url = match["metadata"]["text"].split("\n")[0].split(" ")[2]
-            if source_url == variables_db.eof_index:
+            id = match["id"]
+
+            #source_url = match["metadata"]["text"].split("\n")[0].split(" ")[2]
+            if id == variables_db.eof_index:
                 continue
-            source_urls.add(source_url)
+            source_urls.add(id)
         
         # Write to csv with namespace name
         df = pd.DataFrame(source_urls)
