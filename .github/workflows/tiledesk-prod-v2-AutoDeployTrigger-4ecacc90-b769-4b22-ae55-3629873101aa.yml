@@ -1,0 +1,43 @@
+name: Trigger auto deployment for tiledesk-prod-v2
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: 
+      [ prodv2 ]
+    paths:
+    - '**'
+    - '.github/workflows/tiledesk-prod-v2-AutoDeployTrigger-4ecacc90-b769-4b22-ae55-3629873101aa.yml'
+
+  # Allow manual trigger 
+  workflow_dispatch:
+      
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.TILEDESKPRODV2_AZURE_CREDENTIALS }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }} 
+          registryUrl: tiledeskacr.azurecr.io
+          registryUsername: ${{ secrets.TILEDESKPRODV2_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.TILEDESKPRODV2_REGISTRY_PASSWORD }}
+          containerAppName: tiledesk-prod-v2
+          resourceGroup: tiledesk
+          imageToBuild: tiledeskacr.azurecr.io/tiledesk-prod-v2:${{ github.sha }}
+          
+            
+
+     
+
