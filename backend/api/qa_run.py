@@ -5,7 +5,6 @@ import traceback
 from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
 from langchain.chat_models import ChatOpenAI
 
-# Attempt to import necessary modules from the API, if not available, import them directly.
 try:
     from api import variables_db
     from api import pinecone_functions
