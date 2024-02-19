@@ -103,6 +103,8 @@ class QA_Inputs(BaseModel):
     namespace : str
     chat_history_dict: dict = {}
     model: str = "gpt-3.5-turbo" # or gpt-4
+    temperature: float = 0.0
+    top_k: int = 5
 
 @app.post("/api/qa")
 def qa_run_api(inputs: QA_Inputs):
@@ -114,6 +116,8 @@ def qa_run_api(inputs: QA_Inputs):
         openai_api_key=inputs.gptkey,
         namespace=inputs.namespace,
         model = inputs.model,
+        temperature=inputs.temperature,
+        top_k=inputs.top_k,
         chat_history_dict=inputs.chat_history_dict)
     
     api_timer_end = time.time()

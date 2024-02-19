@@ -22,7 +22,7 @@ from langchain.output_parsers import StructuredOutputParser
 
 import tiktoken
 
-context_print_option= False
+context_print_option= True
 max_tokens = 4097 - 317 -100 # 4097 max token size for gpt 3.5 -317 for pre prompt -100 for question
 ########################################################### CHILD FUNCTIONS ###########################################################
 #######################################################################################################################################
@@ -65,7 +65,7 @@ def truncate_text(text, max_length):
         truncated_text += word + " "
     return truncated_text.strip()
 
-def create_context(question: str, pinecone_namespace: str, top_k: int = 5) -> tuple:
+def create_context(question: str, pinecone_namespace: str, top_k: int) -> tuple:
     """
     Create a context for the given question using embeddings.
 
@@ -155,7 +155,7 @@ def conversation(context: str, question: str, chat_history: str = "", model: str
     return response['choices'][0]['message']['content']
 
 
-def conversation_with_langchain(context: str, question: str, model: str, chat_history: str = "") -> str:
+def conversation_with_langchain(context: str, question: str, model: str, temperature:float, chat_history: str = "") -> str:
     """
     Generate a conversation based on the provided context and question.
 
@@ -195,8 +195,10 @@ def conversation_with_langchain(context: str, question: str, model: str, chat_hi
 
     format_instructions : ```{format_instructions}```
     """
+    
+
     context_n_token = compute_token_size(context)
-    LLM = ChatOpenAI(temperature=0, max_tokens=max_tokens-context_n_token, model=model, verbose=True)
+    LLM = ChatOpenAI(temperature=temperature, max_tokens=max_tokens-context_n_token, model=model, verbose=True)
     # Define the response schemas for structured output
     response_schemas = [
         ResponseSchema(name="questions_language", description="The language of the question."),
@@ -237,7 +239,7 @@ def handle_exception(e: Exception) -> dict:
     error_message = [x for x in error_message if x.strip()]
     return {"answer": "Error!", "source": None, "namespace":"", "id": "", "prompt_token_size": "0", "success": False, "error_message": error_message[-1]}
 
-def answer_question(question: str, pinecone_namespace: str, model: str, chat_history: str = "") -> dict:
+def answer_question(question: str, pinecone_namespace: str, model: str, temperature:float, top_k:int, chat_history: str = "") -> dict:
     """
     Answer a question based on the most similar context.
 
@@ -251,7 +253,7 @@ def answer_question(question: str, pinecone_namespace: str, model: str, chat_his
     """
     global context_print_option
     context_time_start = time.time()
-    context, resource_id = create_context(question, pinecone_namespace)
+    context, resource_id = create_context(question, pinecone_namespace, top_k=top_k)
     print("Context token size: ", compute_token_size(context))
     context_time_end = time.time()
     print("context_create_time : ", context_time_end - context_time_start)
@@ -262,7 +264,7 @@ def answer_question(question: str, pinecone_namespace: str, model: str, chat_his
 
     try:
         conversation_time_start = time.time()
-        answer_json, prompt_token_size= conversation_with_langchain(context, question, model = model, chat_history = chat_history)
+        answer_json, prompt_token_size= conversation_with_langchain(context, question, model = model, temperature=temperature, chat_history = chat_history)
         conversation_time_end = time.time()
         print("conversation_time : ", conversation_time_end - conversation_time_start)
         answer = answer_json['answer']
@@ -307,7 +309,7 @@ def init() -> None:
     
 ############################################################ MAIN FUNCTION ############################################################
 #######################################################################################################################################
-def main(question: str, openai_api_key: str, namespace: str, model: str, chat_history_dict:dict = dict()) -> dict:
+def main(question: str, openai_api_key: str, namespace: str, model: str, temperature:float, top_k:int, chat_history_dict:dict = dict()) -> dict:
     """
     Main function to answer a question based on the most relevant context from a database.
 
@@ -342,7 +344,7 @@ def main(question: str, openai_api_key: str, namespace: str, model: str, chat_hi
             namespaces = list(index_stats['namespaces'].keys())
             if pinecone_namespace in namespaces:
                 chat_history = create_chat_history_string(chat_history_dict)
-                response = answer_question(question=question, pinecone_namespace=pinecone_namespace, model=model, chat_history = chat_history)
+                response = answer_question(question=question, pinecone_namespace=pinecone_namespace, model=model, temperature=temperature, top_k=top_k, chat_history = chat_history)
             else:
                 response = {"answer": "Error!", "source": None, "namespace": pinecone_namespace, "id": "", "prompt_token_size": "0", "success": False, "error_message": f"The pinecone database found but there is no namespace called {pinecone_namespace}, please start the scraper for {pinecone_namespace}"}
         else:
