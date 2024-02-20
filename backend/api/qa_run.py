@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import traceback
 from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
 from langchain.chat_models import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
+from langchain.output_parsers import ResponseSchema, StructuredOutputParser
 
 # Attempt to import necessary modules from the API, if not available, import them directly.
 try:
@@ -12,16 +14,12 @@ try:
 except ImportError:
     import variables_db
     import pinecone_functions
+
 import json
 from datetime import datetime
 import time
-
-from langchain.prompts import ChatPromptTemplate
-from langchain.chat_models import ChatOpenAI
-from langchain.output_parsers import ResponseSchema
-from langchain.output_parsers import StructuredOutputParser
-
 import tiktoken
+
 
 context_print_option= True
 max_tokens = 4097 - 317 -100 # 4097 max token size for gpt 3.5 -317 for pre prompt -100 for question
@@ -199,7 +197,10 @@ def conversation_with_langchain(context: str, question: str, model: str, tempera
     
 
     context_n_token = compute_token_size(context)
-    LLM = ChatOpenAI(temperature=temperature, max_tokens=max_tokens-context_n_token, model=model, verbose=True)
+    LLM = ChatOpenAI(temperature=temperature,
+                    max_tokens=max_tokens-context_n_token,
+                    model=model,
+                    verbose=True)
     # Define the response schemas for structured output
     response_schemas = [
         ResponseSchema(name="questions_language", description="The language of the question."),
