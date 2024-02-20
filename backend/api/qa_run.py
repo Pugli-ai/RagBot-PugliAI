@@ -21,7 +21,7 @@ import time
 import tiktoken
 
 
-context_print_option= True
+context_print_option= False
 max_tokens = 4097 - 317 -100 # 4097 max token size for gpt 3.5 -317 for pre prompt -100 for question
 ########################################################### CHILD FUNCTIONS ###########################################################
 #######################################################################################################################################
