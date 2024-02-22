@@ -2,7 +2,7 @@ fastapi
 uvicorn
 pandas
 numpy
-openai==0.27.6
+
 # api_key
 python-dotenv
 matplotlib
@@ -13,7 +13,12 @@ pinecone-client==2.2.2
 bs4
 beautifulsoup4
 tiktoken
-langchain==0.0.216
 nltk
 webdriver_manager==4.0.1
 selenium==4.13.0
+langchain==0.1.8
+langchain-community==0.0.21
+langchain-core==0.1.24
+langchain-openai==0.0.6
+langchainplus-sdk==0.0.20
+openai==1.12.0

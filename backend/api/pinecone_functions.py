@@ -1,7 +1,9 @@
 import pinecone
 import os
 from urllib.parse import urlparse
-import openai
+from openai import OpenAI
+
+
 try:
     from api import variables_db
 except:
@@ -14,6 +16,7 @@ import pytz
     
 INDEX= None
 is_pinecone_initialized = False
+client = OpenAI(api_key=variables_db.OPENAI_API_KEY)
 
 def init_pinecone():
     api_key = variables_db.PINECONE_API_KEY
@@ -29,8 +32,7 @@ if not is_pinecone_initialized:
 
 def is_api_key_valid(api_key):
     try:
-        openai.api_key = api_key
-        openai.Model.list()
+        client.models.list()
         return True
     except Exception as e:
         print(traceback.format_exc())

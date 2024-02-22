@@ -9,7 +9,6 @@ import os
 import pandas as pd
 import tiktoken
 import numpy as np
-from openai.embeddings_utils import distances_from_embeddings, cosine_similarity
 import openai
 from time import sleep
 import time
@@ -42,6 +41,10 @@ from webdriver_manager.firefox import GeckoDriverManager
 
 import concurrent.futures
 import asyncio
+
+from langchain_openai import OpenAIEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+
 
 is_outsourceapi= False
 is_selenium = True
@@ -446,10 +449,9 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df = pd.DataFrame(shortened, columns=['url', 'text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
 
-    openai.api_key = variables_db.OPENAI_API_KEY
-    os.environ['OPENAI_API_KEY'] = openai.api_key
+    os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
     print("embedding started")
-    df['embeddings'] = df.text.apply(lambda x: openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding'])
+    df['embeddings'] = df.text.apply(lambda x: OpenAIEmbeddings(model="text-embedding-ada-002").embed_query(x) )
     print("embedding ended")
     return df
 
@@ -705,7 +707,7 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
     try :
         scraper_status_single_task_list.append(id)
         variables_db.OPENAI_API_KEY = gptkey
-        os.environ['OPENAI_API_KEY'] = openai.api_key
+        os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY 
         max_tokens = 7500
 
         if type == "url":
@@ -720,16 +722,23 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
         text = re.sub(' +', ' ', text)
 
         tokenizer = tiktoken.get_encoding("cl100k_base")
-        n_tokens = len(tokenizer.encode(text))
-        print("N_TOKENS: ", n_tokens)
-        if n_tokens > max_tokens:
-            text = split_into_many(source, text, tokenizer=tokenizer, max_tokens=max_tokens)[0][1]
-        embedding = openai.Embedding.create(input=text, engine='text-embedding-ada-002')['data'][0]['embedding']
-        dimension = len(embedding)
-        print("DIMENSION: ", dimension)
-        metadata = {"id": id, "type": type, "source": source, "is_tree": is_tree, "n_tokens": n_tokens, "content": text}
-        pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-        pinecone_functions.INDEX.upsert([{'id': id, 'values': embedding, 'metadata': metadata}], namespace=namespace)
+
+        test_list = CharacterTextSplitter(separator="", chunk_size=max_tokens*4, chunk_overlap=200).split_text(text)
+
+        for idx in range(len(test_list)):
+            text = test_list[idx]
+            n_tokens = len(tokenizer.encode(text))
+            print(f"Chunk {idx+1}: {n_tokens} tokens")
+
+            embedding = OpenAIEmbeddings(model="text-embedding-ada-002").embed_query(text)
+
+            dimension = len(embedding)
+            print("DIMENSION: ", dimension)
+            id_new = id + "#" + str(idx) if idx > 0 else id
+            metadata = {"id": id_new, "type": type, "source": source, "is_tree": is_tree, "n_tokens": n_tokens, "content": text}
+            pinecone_functions.INDEX = pinecone_functions.retrieve_index()
+            pinecone_functions.INDEX.upsert([{'id': id_new, 'values': embedding, 'metadata': metadata}], namespace=namespace)
+
         scraper_status_single_task_list.remove(id)
         return {"success": True, "message": "Data upsert completed."}
     except Exception as e:
@@ -773,12 +782,6 @@ def scraper_status_single(namespace: str, id: str) -> dict:
         message = traceback.format_exc()
         message = f"(id: {id}) " + message
         return {"status_message" : message, "status_code": status_code, "queue_order": queue_index}
-
-
-             
-        
-
-
 
 def main(full_url: str, gptkey: str, namespace: str) -> None:
     """
@@ -884,14 +887,7 @@ def format_time(seconds):
         time_str += "0sec"
 
     return time_str
-
-
-    
-
-
-    
       
-
 
 ########################################################################################################################################################
 ########################################################################################################################################################
@@ -912,5 +908,7 @@ if __name__ == "__main__":
     #full_url = "https://www.postpickr.com/"
     #full_url = "https://www.loloballerina.com/"
     #full_url = "https://developer.tiledesk.com/" # TRY ITT!!!!
-    full_url = "https://www.metrabuilding.com/blog/"
-    main(full_url, variables_db.OPENAI_API_KEY)
+    #full_url = "https://www.metrabuilding.com/blog/"
+    #main(full_url, variables_db.OPENAI_API_KEY)
+    full_url = "https://developer.tiledesk.com/"
+    scrape_single(id="1", content="", source=full_url, type="url", gptkey=variables_db.OPENAI_API_KEY, namespace="temp-namespace", is_tree="False")

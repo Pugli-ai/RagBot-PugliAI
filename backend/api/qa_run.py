@@ -1,5 +1,7 @@
 import os
-import openai
+from openai import OpenAI
+
+
 from dotenv import load_dotenv
 import traceback
 from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
@@ -19,9 +21,10 @@ import json
 from datetime import datetime
 import time
 import tiktoken
+from langchain_openai import OpenAIEmbeddings
 
-
-context_print_option= False
+client = OpenAI(api_key=variables_db.OPENAI_API_KEY)
+context_print_option= True
 max_tokens = 4097 - 317 -100 # 4097 max token size for gpt 3.5 -317 for pre prompt -100 for question
 ########################################################### CHILD FUNCTIONS ###########################################################
 #######################################################################################################################################
@@ -76,7 +79,9 @@ def create_context(question: str, pinecone_namespace: str, top_k: int) -> tuple:
     """
     global max_tokens
     # Generate embeddings for the question.
-    q_embeddings = openai.Embedding.create(input=question, engine='text-embedding-ada-002')['data'][0]['embedding']
+    q_embeddings = OpenAIEmbeddings(model="text-embedding-ada-002").embed_query(question)
+
+    #q_embeddings = openai.Embedding.create(input=question, engine='text-embedding-ada-002')['data'][0]['embedding']
     
     # Query the pinecone index to get the most relevant matches.
     results = pinecone_functions.INDEX.query(
@@ -134,24 +139,22 @@ def conversation(context: str, question: str, chat_history: str = "", model: str
     Answer:
     """
 
-    response = openai.ChatCompletion.create(
-        messages=[
-            {
-            "role": "user",
-            "content": template
-            }
-        ],
-        #prompt=template,
-        temperature=0,
-        max_tokens=max_tokens,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0,
-        stop=None,
-        model=model,
-    )
+    response = client.chat.completions.create(messages=[
+        {
+        "role": "user",
+        "content": template
+        }
+    ],
+    #prompt=template,
+    temperature=0,
+    max_tokens=max_tokens,
+    top_p=1,
+    frequency_penalty=0,
+    presence_penalty=0,
+    stop=None,
+    model=model)
 
-    return response['choices'][0]['message']['content']
+    return response.choices[0].message.content
 
 
 def conversation_with_langchain(context: str, question: str, model: str, temperature:float, chat_history: str = "") -> str:
@@ -306,8 +309,7 @@ def init() -> None:
     """
     #pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
     load_dotenv()
-    openai.api_key = variables_db.OPENAI_API_KEY
-    os.environ['OPENAI_API_KEY'] = openai.api_key
+    os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
     
 ############################################################ MAIN FUNCTION ############################################################
 #######################################################################################################################################
@@ -333,8 +335,7 @@ def main(question: str, openai_api_key: str, namespace: str, model: str, tempera
         if variables_db.OPENAI_API_KEY != openai_api_key:
             print('Changing OPENAI_API_KEY')
             variables_db.OPENAI_API_KEY = openai_api_key
-            openai.api_key = variables_db.OPENAI_API_KEY
-            os.environ['OPENAI_API_KEY'] = openai.api_key
+            os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
         
         # Convert the URL to a Pinecone index name.
         pinecone_namespace = namespace
@@ -389,7 +390,8 @@ if __name__ == "__main__":
         ]
 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo",
+                          temperature=0.0, top_k=5)
         
     if full_url == "https://gethelp.tiledesk.com/":
         question_list = [
