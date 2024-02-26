@@ -723,7 +723,7 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
 
         tokenizer = tiktoken.get_encoding("cl100k_base")
 
-        test_list = CharacterTextSplitter(separator="", chunk_size=max_tokens*4, chunk_overlap=200).split_text(text)
+        test_list = CharacterTextSplitter(separator="", chunk_size=4000, chunk_overlap=100).split_text(text)
 
         for idx in range(len(test_list)):
             text = test_list[idx]
