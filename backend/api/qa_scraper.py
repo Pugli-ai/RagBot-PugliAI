@@ -707,14 +707,15 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
     try :
         scraper_status_single_task_list.append(id)
         variables_db.OPENAI_API_KEY = gptkey
-        os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY 
+        os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
         max_tokens = 7500
 
         if type == "url":
             text = scrape_single_url_content(source)
         else:
             text = content
-        text = "source: " + source + " \n" + text
+            source = id
+        #text = "source: " + source + " \n" + text
         
         # remove new lines
         text = text.replace('\n', ' ')
@@ -723,10 +724,12 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
 
         tokenizer = tiktoken.get_encoding("cl100k_base")
 
-        test_list = CharacterTextSplitter(separator="", chunk_size=4000, chunk_overlap=100).split_text(text)
+        text_list = CharacterTextSplitter(separator="", chunk_size=3000, chunk_overlap=200).split_text(text)
+        for idx in range(len(text_list)):
+            text_list[idx] = "source: " + source + " \n" + text_list[idx]
 
-        for idx in range(len(test_list)):
-            text = test_list[idx]
+        for idx in range(len(text_list)):
+            text = text_list[idx]
             n_tokens = len(tokenizer.encode(text))
             print(f"Chunk {idx+1}: {n_tokens} tokens")
 
