@@ -44,6 +44,7 @@ import asyncio
 
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.document_loaders import SeleniumURLLoader
 
 
 is_outsourceapi= False
@@ -701,7 +702,23 @@ def scrape_single_url_content(url: str) -> str:
         return None
     return text
 
-        
+def langchain_scraper(url_list: list) -> tuple:
+    """this method will scrape the given url list and return the result as tuple [[source, content],..]
+
+    Args:
+        url_list (list): _description_
+
+    Returns:
+        tuple: [[source, content],..]
+    """
+    content_url_tuple= []
+    loader = SeleniumURLLoader(urls=url_list, browser='firefox')
+    datas = loader.load()
+    for data in datas:
+        content_url_tuple.append([data.metadata['source'], data.page_content])
+    return content_url_tuple
+
+
 def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, namespace: str, is_tree: str) -> dict:
     global scraper_status_single_task_list
     try :
@@ -711,7 +728,7 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
         max_tokens = 7500
 
         if type == "url":
-            text = scrape_single_url_content(source)
+           source, text = langchain_scraper([source])[0]
         else:
             text = content
             source = id
