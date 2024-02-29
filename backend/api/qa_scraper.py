@@ -738,6 +738,7 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
         text = text.replace('\n', ' ')
         text = text.replace('\\n', ' ')
         text = re.sub(' +', ' ', text)
+        text = text.replace('  ', ' ')
 
         tokenizer = tiktoken.get_encoding("cl100k_base")
 
