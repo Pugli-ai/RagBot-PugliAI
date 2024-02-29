@@ -685,21 +685,17 @@ def langchain_scraper(url_list: list) -> tuple:
         content_url_tuple.append([data.metadata['source'], data.page_content])
     return content_url_tuple
 
-
 def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, namespace: str, is_tree: str) -> dict:
     global scraper_status_single_task_list
     try :
         scraper_status_single_task_list.append(id)
         variables_db.OPENAI_API_KEY = gptkey
         os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
-        max_tokens = 7500
-
         if type == "url":
            source, text = langchain_scraper([source])[0]
         else:
             text = content
             source = id
-        #text = "source: " + source + " \n" + text
         
         # remove new lines
         text = text.replace('\n', ' ')
