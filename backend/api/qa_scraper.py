@@ -44,6 +44,7 @@ import asyncio
 
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.document_loaders import SeleniumURLLoader
 
 
 is_outsourceapi= False
@@ -667,60 +668,40 @@ def list_namespace_content(namespace: str) -> dict:
 ######################################################################################
 ######################################## Scrape Single ########################################
 ######################################################################################
-def scrape_single_url_content(url: str) -> str:
-    """_summary_
+
+def langchain_scraper(url_list: list) -> tuple:
+    """this method will scrape the given url list and return the result as tuple [[source, content],..]
 
     Args:
-        url (str): _description_
+        url_list (list): _description_
 
     Returns:
-        str: _description_
+        tuple: [[source, content],..]
     """
-    firefox_options = FirefoxOptions()
-    firefox_options.add_argument('--headless')  # Uncomment to run headless
-    firefox_options.add_argument("--log-level=3")
+    content_url_tuple= []
+    loader = SeleniumURLLoader(urls=url_list, browser='firefox')
+    datas = loader.load()
+    for data in datas:
+        content_url_tuple.append([data.metadata['source'], data.page_content])
+    return content_url_tuple
 
-    driver = webdriver.Firefox(service=Service(executable_path="/geckodriver"), options=firefox_options)
-    sleep(1)
-    driver.get(url)
-    sleep(6)
-    if not url.endswith("/"):
-        url += "/"
-    url = url.replace('%2F%2F%2F', '')
-    clean_url = url[:-1] if url.endswith("/") else url
-    if any(clean_url.endswith(ext) for ext in variables_db.avoid_extensions):
-        print("Page skipped:  " + url + " due to extension")
-        print("returning None")
-        return None
-    text = driver.find_element(By.TAG_NAME, 'body').text
-    driver.quit()
-    # If the crawler gets to a page that requires JavaScript, it will stop the crawl
-    if ("You need to enable JavaScript to run this app." in text):
-        print("Unable to parse page " + url + " due to JavaScript being required")
-        print("Returning None")
-        return None
-    return text
-
-        
 def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, namespace: str, is_tree: str) -> dict:
     global scraper_status_single_task_list
     try :
         scraper_status_single_task_list.append(id)
         variables_db.OPENAI_API_KEY = gptkey
         os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
-        max_tokens = 7500
-
         if type == "url":
-            text = scrape_single_url_content(source)
+           source, text = langchain_scraper([source])[0]
         else:
             text = content
             source = id
-        #text = "source: " + source + " \n" + text
         
         # remove new lines
         text = text.replace('\n', ' ')
         text = text.replace('\\n', ' ')
         text = re.sub(' +', ' ', text)
+        text = text.replace('  ', ' ')
 
         tokenizer = tiktoken.get_encoding("cl100k_base")
 
@@ -915,3 +896,42 @@ if __name__ == "__main__":
     #main(full_url, variables_db.OPENAI_API_KEY)
     full_url = "https://developer.tiledesk.com/"
     scrape_single(id="1", content="", source=full_url, type="url", gptkey=variables_db.OPENAI_API_KEY, namespace="temp-namespace", is_tree="False")
+
+
+
+'''
+def scrape_single_url_content(url: str) -> str:
+    """_summary_
+
+    Args:
+        url (str): _description_
+
+    Returns:
+        str: _description_
+    """
+    firefox_options = FirefoxOptions()
+    firefox_options.add_argument('--headless')  # Uncomment to run headless
+    firefox_options.add_argument("--log-level=3")
+
+    driver = webdriver.Firefox(service=Service(executable_path="/geckodriver"), options=firefox_options)
+    sleep(1)
+    driver.get(url)
+    sleep(6)
+    if not url.endswith("/"):
+        url += "/"
+    url = url.replace('%2F%2F%2F', '')
+    clean_url = url[:-1] if url.endswith("/") else url
+    if any(clean_url.endswith(ext) for ext in variables_db.avoid_extensions):
+        print("Page skipped:  " + url + " due to extension")
+        print("returning None")
+        return None
+    text = driver.find_element(By.TAG_NAME, 'body').text
+    driver.quit()
+    # If the crawler gets to a page that requires JavaScript, it will stop the crawl
+    if ("You need to enable JavaScript to run this app." in text):
+        print("Unable to parse page " + url + " due to JavaScript being required")
+        print("Returning None")
+        return None
+    return text
+
+'''
