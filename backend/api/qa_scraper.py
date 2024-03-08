@@ -629,7 +629,8 @@ def delete_with_id(id: str, namespace: str) -> None:
     """
     if variables_db.PINECONE_INDEX_NAME in pinecone.list_indexes():
         pinecone_functions.INDEX = pinecone_functions.retrieve_index()
-        pinecone_functions.INDEX.delete(ids=[id], namespace=namespace)
+        ids = [f"{id}#{i}" if i != 0 else id for i in range(1000)]
+        pinecone_functions.INDEX.delete(ids=ids, namespace=namespace)
         response = {"success": True, "message": f"{id} is deleted from database"}
     else:
         response = {"success": False, "message": "Database is not exist"}
@@ -719,7 +720,7 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
             dimension = len(embedding)
             print("DIMENSION: ", dimension)
             id_new = id + "#" + str(idx) if idx > 0 else id
-            metadata = {"id": id_new, "type": type, "source": source, "is_tree": is_tree, "n_tokens": n_tokens, "content": text}
+            metadata = {"id": id, "type": type, "source": source, "is_tree": is_tree, "n_tokens": n_tokens, "content": text}
             pinecone_functions.INDEX = pinecone_functions.retrieve_index()
             pinecone_functions.INDEX.upsert([{'id': id_new, 'values': embedding, 'metadata': metadata}], namespace=namespace)
 
