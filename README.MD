@@ -357,3 +357,6 @@ Note: `is_tree` indicates whether the row was scraped using the scraper tree met
 #### Fields Description:
 - `success`: A boolean value that indicates whether the given namespace was successfully deleted or not.
 - `message`: The message detailing the outcome of the deleting process.
+
+
+Developed by PugliAI
