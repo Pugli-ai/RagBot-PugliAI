@@ -1,4 +1,15 @@
-# Q&A Bot for websites with generative ai 
+# Retriever-and-Generator (RAG) Q&A Bot for Websites
+
+This project introduces a Retriever-and-Generator (RAG) Q&A Bot, an innovative tool for enhancing website interactivity using generative AI. The bot expertly combines a 'Retriever' for sourcing relevant information and a 'Generator' for creating natural, context-aware responses. Utilizing Pinecone, a vector database optimized for machine learning, the bot offers precise information retrieval and management.
+
+Key features include:
+- Easy deployment and scalability through Docker integration.
+- Comprehensive APIs for content scraping, Q&A handling, and data management.
+- Customizable knowledgebase with Pinecone for efficient data organization.
+- Compatibility with cloud services for versatile hosting options.
+- Real-time tracking for scraping and data updates.
+
+Ideal for website enhancement, this RAG Q&A Bot demonstrates the power of generative AI in creating dynamic, user-focused interactions.
 
 ## Requirements
 
@@ -28,24 +39,7 @@ To run it without docker:
 Access the app locally at http://localhost:8100.
 
 # Getting started with Cloud API
-# **Definition of REST Body and Response Parameters**
 
-<<<<<<< HEAD
-## List of REST APIs
-- Scrapers 
-  - Scrape Single
-  - Scrape Tree
-- Q&A
-- Scraper Status
-- List Namespace
-- Delete
-  - Delete by ID
-  - Delete by Namespace
-
-# Scrapers
-## Scrape Single
-
-=======
 # **Definition of REST Body and Response Parameters**
 
 ## List of REST APIs
@@ -62,8 +56,7 @@ Access the app locally at http://localhost:8100.
 # Scrapers
 ## Scrape Single
 
->>>>>>> e5fa4ee (change background task to queue on single scrape)
-**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/scrape/single`
+**API Endpoint**: `https://tiledesk-prod-v2.bravesky-de61454e.francecentral.azurecontainerapps.io/api/scrape/single`
 
 #### Request Body:
 ```json
@@ -96,7 +89,7 @@ Access the app locally at http://localhost:8100.
 
 ## Scrape Tree
 
-**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/scrape/tree`
+**API Endpoint**: `https://tiledesk-prod-v2.bravesky-de61454e.francecentral.azurecontainerapps.io/api/scrape/tree`
 
 ### Request Body:
 ```json
@@ -124,19 +117,27 @@ Access the app locally at http://localhost:8100.
 - `message`: A notification indicating that the scrape request has been added to the queue. Users are advised to check the scraping status API for updates on the progress.
 
 # Q&A
-**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/qa`
+**API Endpoint**: `https://tiledesk-prod-v2.bravesky-de61454e.francecentral.azurecontainerapps.io/api/qa`
 
 ### Request Body:
 ```json
 {
     "question": "what is Design Studio?",
     "namespace": "tiledesk-tree",
-<<<<<<< HEAD
     "gptkey": "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",
     "model": "gpt-3.5-turbo",
-=======
-    "gptkey": "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"
->>>>>>> e5fa4ee (change background task to queue on single scrape)
+    "temperature": 0.0,
+    "top_k": 5
+    "chat_history_dict" : {
+        "0": {
+            "question": "How to integrate to my website? ",
+            "answer": "To integrate Tiledesk to your website, follow these steps: \n1. Locate your unique Tiledesk javascript code on your Tiledesk Dashboard by going to Settings > Widget > Add chat to your website..."
+        },
+        "1": {
+        "question": "How about telegram?",
+        "answer": "To connect Tiledesk with Telegram, follow these steps:\n\n1. Login in Tiledesk Dashboard, then click “Apps” in the left menu and click Install on the Telegram icon..."
+        }
+    }
 }
 
 ``` 
@@ -145,10 +146,10 @@ _Fields description_:
 - _question_: question asked by the user
 - _namespace_: knowledge base namespace on pinecone
 - _gptkey_: openai gpt key
-<<<<<<< HEAD
-- _model_: gpt model name . "gpt-3.5-turbo" or "gpt-4"
-=======
->>>>>>> e5fa4ee (change background task to queue on single scrape)
+- _model_ (optional): gpt model name . "gpt-3.5-turbo" or "gpt-4". default: "gpt-3.5-turbo".
+- _temperature_ (optional): temperature of gpt 0.0 to 1.0. Default its 0.0
+- _top_k_ (optional): top k context that will retrieve from pinecone. Default its 5
+- _chat_history_dict_ (optional): chat history of conversation.
 
 ### Response:
 ```json
@@ -157,6 +158,7 @@ _Fields description_:
     "source": "https://tiledesk.com/nl/no-code-chatbot-builder/",
     "namespace": "tiledesk-tree",
     "id": "https://tiledesk.com/nl/no-code-chatbot-builder/#0",
+    "prompt_token_size": 3672,
     "success": true,
     "error_message": null
 }
@@ -166,13 +168,14 @@ _Fields description_:
 - `source`: The source of the content.
 - `namespace`: The namespace of the source (knowledgebase group ID).
 - `id`: The ID of the source on Pinecone.
+- `prompt_token_size`: token size of prompt for this api call
 - `success`: A boolean that is true if the action can generate an answer, or false if it cannot.
 - `error_message`: Message returned if an error occurs.
 
 
 # Scraping Status
 
-**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/scrape/status`
+**API Endpoint**: `https://tiledesk-prod-v2.bravesky-de61454e.francecentral.azurecontainerapps.io/api/scrape/status`
 
 ### Request Body:
 ```json
@@ -258,7 +261,7 @@ _Fields description_:
 
 # List Namespace
 
-**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/list/namespace`
+**API Endpoint**: `https://tiledesk-prod-v2.bravesky-de61454e.francecentral.azurecontainerapps.io/api/list/namespace`
 
 ### Request Body:
 ```json
@@ -305,7 +308,7 @@ Note: `is_tree` indicates whether the row was scraped using the scraper tree met
 
 # Delete ID
 
-**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/delete/id`
+**API Endpoint**: `https://tiledesk-prod-v2.bravesky-de61454e.francecentral.azurecontainerapps.io/api/delete/id`
 
 ### Request Body:
 ```json
@@ -332,7 +335,7 @@ Note: `is_tree` indicates whether the row was scraped using the scraper tree met
 
 # Delete Namespace
 
-**API Endpoint**: `https://tiledesk-dev.blackwave-d2bf4ee1.westus2.azurecontainerapps.io/api/delete/namespace`
+**API Endpoint**: `https://tiledesk-prod-v2.bravesky-de61454e.francecentral.azurecontainerapps.io/api/delete/namespace`
 
 ### Request Body:
 ```json
@@ -354,4 +357,3 @@ Note: `is_tree` indicates whether the row was scraped using the scraper tree met
 #### Fields Description:
 - `success`: A boolean value that indicates whether the given namespace was successfully deleted or not.
 - `message`: The message detailing the outcome of the deleting process.
-
