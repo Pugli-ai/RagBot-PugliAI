@@ -16,7 +16,7 @@ import pytz
     
 INDEX= None
 is_pinecone_initialized = False
-client = OpenAI(api_key=variables_db.OPENAI_API_KEY)
+client = OpenAI(api_key="youdidntgaveit")
 
 def init_pinecone():
     api_key = variables_db.PINECONE_API_KEY

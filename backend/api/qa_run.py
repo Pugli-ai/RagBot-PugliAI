@@ -22,7 +22,7 @@ import time
 import tiktoken
 from langchain_openai import OpenAIEmbeddings
 
-client = OpenAI(api_key=variables_db.OPENAI_API_KEY)
+client = OpenAI(api_key=pinecone_functions.client.api_key)
 context_print_option= True
 max_tokens = 4097 - 317 -100 # 4097 max token size for gpt 3.5 -317 for pre prompt -100 for question
 ########################################################### CHILD FUNCTIONS ###########################################################
@@ -308,8 +308,8 @@ def init() -> None:
     """
     #pinecone_functions.init_pinecone(variables_db.PINECONE_API_KEY, variables_db.PINECONE_API_KEY_ZONE)
     load_dotenv()
-    os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
-    
+    os.environ['OPENAI_API_KEY'] = pinecone_functions.client.api_key
+
 ############################################################ MAIN FUNCTION ############################################################
 #######################################################################################################################################
 def main(question: str, openai_api_key: str, namespace: str, model: str, temperature:float, top_k:int, chat_history_dict:dict = dict()) -> dict:
@@ -331,10 +331,10 @@ def main(question: str, openai_api_key: str, namespace: str, model: str, tempera
         print(f'{rome_time} // Question: {question}')
         
         # Check and update the OpenAI API key if necessary.
-        if variables_db.OPENAI_API_KEY != openai_api_key:
+        if pinecone_functions.client.api_key != openai_api_key:
             print('Changing OPENAI_API_KEY')
-            variables_db.OPENAI_API_KEY = openai_api_key
-            os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
+            pinecone_functions.client.api_key = openai_api_key
+            os.environ['OPENAI_API_KEY'] = pinecone_functions.client.api_key
         
         # Convert the URL to a Pinecone index name.
         pinecone_namespace = namespace
@@ -389,7 +389,7 @@ if __name__ == "__main__":
         ]
 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo",
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo",
                           temperature=0.0, top_k=5)
         
     if full_url == "https://gethelp.tiledesk.com/":
@@ -447,7 +447,7 @@ if __name__ == "__main__":
 
     ]
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
 
     elif full_url == "https://www.deghi.it/supporto/":
@@ -465,18 +465,18 @@ if __name__ == "__main__":
                         "quanto tempo ci vuole per ricevere un ordine?"
         ]
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
 
 
     elif full_url == "https://docs.pinecone.io/":
         question = "What is pinecone?"
-        answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+        answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
         print(f"Question: {question}\nAnswer: {answer}")
 
         question = "How to create an index?"
-        answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+        answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
         print(f"Question: {question}\nAnswer: {answer}")
     elif full_url == "https://knowledge.webafrica.co.za":
@@ -485,7 +485,7 @@ if __name__ == "__main__":
                         
         ]
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
         
     elif full_url == "https://ecobaby.it/":
         question_list = [
@@ -493,7 +493,7 @@ if __name__ == "__main__":
                         
         ]
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
     elif full_url == "https://aulab.it/":
         question_list = [
@@ -501,7 +501,7 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
     elif full_url == "https://lineaamica.gov.it/":
         question_list = [
@@ -509,7 +509,7 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
 
     elif full_url == "http://cairorcsmedia.it/":
@@ -518,7 +518,7 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
 
     elif full_url == "https://www.sace.it/":
@@ -527,7 +527,7 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
 
     elif full_url == "https://www.ucl.ac.uk/":
@@ -536,7 +536,7 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
 
     elif full_url == "http://iostudiocongeco.it/":
@@ -545,7 +545,7 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
 
     elif full_url == "https://www.postpickr.com/":
@@ -554,7 +554,7 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
 
     elif full_url == "https://www.loloballerina.com/":
@@ -563,6 +563,6 @@ if __name__ == "__main__":
                       
         ] 
         for question in question_list:
-            answer = main(question=question, openai_api_key=variables_db.OPENAI_API_KEY, namespace=full_url, model="gpt-3.5-turbo")
+            answer = main(question=question, openai_api_key=pinecone_functions.client.api_key, namespace=full_url, model="gpt-3.5-turbo")
 
 

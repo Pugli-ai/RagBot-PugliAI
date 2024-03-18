@@ -450,7 +450,7 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df = pd.DataFrame(shortened, columns=['url', 'text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
 
-    os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
+    os.environ['OPENAI_API_KEY'] = pinecone_functions.client.api_key
     print("embedding started")
     df['embeddings'] = df.text.apply(lambda x: OpenAIEmbeddings(model="text-embedding-ada-002").embed_query(x) )
     print("embedding ended")
@@ -690,8 +690,8 @@ def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, na
     global scraper_status_single_task_list
     try :
         scraper_status_single_task_list.append(id)
-        variables_db.OPENAI_API_KEY = gptkey
-        os.environ['OPENAI_API_KEY'] = variables_db.OPENAI_API_KEY
+        pinecone_functions.client.api_key = gptkey
+        os.environ['OPENAI_API_KEY'] = pinecone_functions.client.api_key
         if type == "url":
            source, text = langchain_scraper([source])[0]
         else:
@@ -782,7 +782,7 @@ def main(full_url: str, gptkey: str, namespace: str) -> None:
         is_running = True
         current_url = full_url
         timer_start = time.time()
-        variables_db.OPENAI_API_KEY = gptkey
+        pinecone_functions.client.api_key = gptkey
         full_url, _ = pinecone_functions.get_domain_and_url(full_url)
 
         pinecone_namespace = namespace
@@ -894,9 +894,9 @@ if __name__ == "__main__":
     #full_url = "https://www.loloballerina.com/"
     #full_url = "https://developer.tiledesk.com/" # TRY ITT!!!!
     #full_url = "https://www.metrabuilding.com/blog/"
-    #main(full_url, variables_db.OPENAI_API_KEY)
+    #main(full_url, pinecone_functions.client.api_key)
     full_url = "https://developer.tiledesk.com/"
-    scrape_single(id="1", content="", source=full_url, type="url", gptkey=variables_db.OPENAI_API_KEY, namespace="temp-namespace", is_tree="False")
+    scrape_single(id="1", content="", source=full_url, type="url", gptkey="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", namespace="temp-namespace", is_tree="False")
 
 
 
