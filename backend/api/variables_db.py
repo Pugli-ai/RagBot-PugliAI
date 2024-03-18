@@ -4,7 +4,7 @@ PINECONE_INDEX_NAME = 'pugliai-tiledesk'
 eof_index = "ogg56p8zrw5wjubcmcphnwalrvbbduedcva9vdx295lpczyras"
 
 # Delete this 2 line in production
-OPENAI_API_KEY= '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'
+#OPENAI_API_KEY= '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'
 
 #PINECONE_API_KEY =  '11163959-d3d5-499b-9b45-d07bd243788b'
 #PINECONE_API_KEY_ZONE = 'us-west1-gcp-free'
