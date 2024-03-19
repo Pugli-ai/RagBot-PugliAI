@@ -449,8 +449,6 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
 
     df = pd.DataFrame(shortened, columns=['url', 'text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
-
-    os.environ['OPENAI_API_KEY'] = pinecone_functions.client.api_key
     print("embedding started")
     df['embeddings'] = df.text.apply(lambda x: OpenAIEmbeddings(model="text-embedding-ada-002").embed_query(x) )
     print("embedding ended")
@@ -689,9 +687,10 @@ def langchain_scraper(url_list: list) -> tuple:
 def scrape_single(id: str, content: str, source: str, type: str, gptkey: str, namespace: str, is_tree: str) -> dict:
     global scraper_status_single_task_list
     try :
+        openai.OpenAI(api_key=gptkey)
+        os.environ["OPENAI_API_KEY"] = gptkey
         scraper_status_single_task_list.append(id)
-        pinecone_functions.client.api_key = gptkey
-        os.environ['OPENAI_API_KEY'] = pinecone_functions.client.api_key
+
         if type == "url":
            source, text = langchain_scraper([source])[0]
         else:
@@ -782,7 +781,8 @@ def main(full_url: str, gptkey: str, namespace: str) -> None:
         is_running = True
         current_url = full_url
         timer_start = time.time()
-        pinecone_functions.client.api_key = gptkey
+        openai.OpenAI(api_key=gptkey)
+        os.environ["OPENAI_API_KEY"] = gptkey
         full_url, _ = pinecone_functions.get_domain_and_url(full_url)
 
         pinecone_namespace = namespace

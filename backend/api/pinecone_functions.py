@@ -16,7 +16,6 @@ import pytz
     
 INDEX= None
 is_pinecone_initialized = False
-client = OpenAI(api_key="youdidntgaveit")
 
 def init_pinecone():
     api_key = variables_db.PINECONE_API_KEY
@@ -32,6 +31,7 @@ if not is_pinecone_initialized:
 
 def is_api_key_valid(api_key):
     try:
+        client = OpenAI(api_key=api_key)
         client.models.list()
         return True
     except Exception as e:
